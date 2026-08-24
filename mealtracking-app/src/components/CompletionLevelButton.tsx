@@ -1,16 +1,11 @@
 import type { CompletionLevel } from "../types";
+import { COMPLETION_LEVEL_META } from "../labels";
 
 interface CompletionLevelButtonProps {
   level: CompletionLevel;
   selected: boolean;
   onClick: () => void;
 }
-
-const LEVEL_META: Record<CompletionLevel, { icon: string; label: string }> = {
-  full: { icon: "😋", label: "完食" },
-  half: { icon: "🙂", label: "一部" },
-  none: { icon: "😐", label: "未食" },
-};
 
 const SELECTED_STYLE: Record<CompletionLevel, string> = {
   full: "border-green-500 bg-green-500 text-white",
@@ -23,7 +18,7 @@ function CompletionLevelButton({
   selected,
   onClick,
 }: CompletionLevelButtonProps) {
-  const { icon, label } = LEVEL_META[level];
+  const { icon, label } = COMPLETION_LEVEL_META[level];
 
   return (
     <button

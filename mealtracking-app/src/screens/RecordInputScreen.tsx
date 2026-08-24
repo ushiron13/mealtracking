@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../db";
 import type { CompletionLevel, Food, MealRecordItem, Recorder } from "../types";
+import { RECORDER_LABEL } from "../labels";
 import FoodChip from "../components/FoodChip";
 import CompletionLevelButton from "../components/CompletionLevelButton";
 
 const LEVELS: CompletionLevel[] = ["full", "half", "none"];
-
-const RECORDER_META: Record<Recorder, string> = {
-  father: "父",
-  mother: "母",
-};
 
 function RecordInputScreen() {
   const [foods, setFoods] = useState<Food[]>([]);
@@ -149,7 +145,7 @@ function RecordInputScreen() {
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
           <h2 className="mb-3 text-sm font-semibold text-gray-500">記録者</h2>
           <div className="flex gap-3">
-            {(Object.keys(RECORDER_META) as Recorder[]).map((r) => (
+            {(Object.keys(RECORDER_LABEL) as Recorder[]).map((r) => (
               <button
                 key={r}
                 type="button"
@@ -161,7 +157,7 @@ function RecordInputScreen() {
                     : "border-gray-200 bg-white text-gray-700"
                 }`}
               >
-                {RECORDER_META[r]}
+                {RECORDER_LABEL[r]}
               </button>
             ))}
           </div>
