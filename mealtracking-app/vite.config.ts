@@ -3,8 +3,13 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// GitHub Pages serves this project from https://ushiron13.github.io/mealtracking/,
+// so every asset reference and the PWA manifest's start_url/scope must include this subpath.
+const base = '/mealtracking/'
+
 // https://vite.dev/config/
 export default defineConfig({
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -12,13 +17,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        id: '/',
+        id: base,
         name: '離乳食トラッキング',
         short_name: '離乳食記録',
         description: '離乳食の記録を10秒で残せるトラッキングアプリ',
         lang: 'ja',
-        start_url: '/',
-        scope: '/',
+        start_url: base,
+        scope: base,
         display: 'standalone',
         orientation: 'any',
         background_color: '#fff7ed',
