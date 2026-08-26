@@ -1,26 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../db";
-import type { CompletionLevel, Food, MealRecordItem, Recorder } from "../types";
-import { RECORDER_LABEL } from "../labels";
+import type { CompletionLevel, Food, MealRecordItem } from "../types";
+import { useRecorder } from "../RecorderContext";
 import FoodChip from "../components/FoodChip";
 import CompletionLevelButton from "../components/CompletionLevelButton";
 
 const LEVELS: CompletionLevel[] = ["full", "half", "none"];
 
-function RecordInputScreen() {
+interface RecordInputScreenProps {
+  onSaved: () => void;
+}
+
+function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
+  const { recorder } = useRecorder();
+
   const [foods, setFoods] = useState<Food[]>([]);
   const [recordedFoodNames, setRecordedFoodNames] = useState<Set<string>>(
     new Set(),
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  const [recorder, setRecorder] = useState<Recorder>("mother");
   const [selectedFoodIds, setSelectedFoodIds] = useState<number[]>([]);
   const [levels, setLevels] = useState<Partial<Record<number, CompletionLevel>>>(
     {},
   );
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,8 +84,6 @@ function RecordInputScreen() {
   }
 
   async function handleSave() {
-    setSuccessMessage(null);
-
     if (selectedFoodIds.length === 0) {
       setError("食材をひとつ以上選んでください");
       return;
@@ -114,16 +116,9 @@ function RecordInputScreen() {
       items,
     });
 
-    setRecordedFoodNames((prev) => {
-      const next = new Set(prev);
-      for (const item of items) next.add(item.foodName);
-      return next;
-    });
-
     setSelectedFoodIds([]);
     setLevels({});
-    setSuccessMessage("保存しました");
-    window.setTimeout(() => setSuccessMessage(null), 2000);
+    onSaved();
   }
 
   const selectedFoods = selectedFoodIds
@@ -131,7 +126,7 @@ function RecordInputScreen() {
     .filter((food): food is Food => Boolean(food));
 
   return (
-    <div className="min-h-svh bg-orange-50 px-4 py-6 sm:px-8">
+    <div className="px-4 py-6 sm:px-8">
       <div className="mx-auto w-full max-w-2xl space-y-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-bold text-orange-900 sm:text-3xl">
@@ -141,27 +136,6 @@ function RecordInputScreen() {
             食材を選んで、完食度を記録しましょう
           </p>
         </header>
-
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
-          <h2 className="mb-3 text-sm font-semibold text-gray-500">記録者</h2>
-          <div className="flex gap-3">
-            {(Object.keys(RECORDER_LABEL) as Recorder[]).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRecorder(r)}
-                aria-pressed={recorder === r}
-                className={`min-h-11 flex-1 rounded-xl border-2 py-2.5 text-base font-medium transition active:scale-95 ${
-                  recorder === r
-                    ? "border-orange-500 bg-orange-500 text-white"
-                    : "border-gray-200 bg-white text-gray-700"
-                }`}
-              >
-                {RECORDER_LABEL[r]}
-              </button>
-            ))}
-          </div>
-        </section>
 
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
           <h2 className="mb-3 text-sm font-semibold text-gray-500">
@@ -231,12 +205,6 @@ function RecordInputScreen() {
             className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-red-200"
           >
             {error}
-          </p>
-        )}
-
-        {successMessage && (
-          <p className="rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 ring-1 ring-green-200">
-            {successMessage}
           </p>
         )}
 

@@ -28,7 +28,7 @@ function RecordListScreen({ onNavigateToInput }: RecordListScreenProps) {
   }, []);
 
   return (
-    <div className="min-h-svh bg-orange-50 px-4 py-6 sm:px-8">
+    <div className="px-4 py-6 sm:px-8">
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <header className="flex items-center justify-between gap-4">
           <div className="space-y-1">
