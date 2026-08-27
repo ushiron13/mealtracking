@@ -89,3 +89,14 @@ export async function updateRecord(
 export async function deleteRecord(id: number): Promise<void> {
   await db.records.delete(id);
 }
+
+export async function updateFood(
+  id: number,
+  changes: Partial<Omit<Food, "id">>,
+): Promise<void> {
+  await db.foods.update(id, changes);
+}
+
+export async function deleteFood(id: number): Promise<void> {
+  await db.foods.delete(id);
+}

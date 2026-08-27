@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import RecordListScreen from './screens/RecordListScreen'
 import RecordInputScreen from './screens/RecordInputScreen'
+import FoodListScreen from './screens/FoodListScreen'
 import { RecorderContext } from './RecorderContext'
 import { RECORDER_LABEL } from './labels'
 import type { Recorder } from './types'
 
-type Screen = 'list' | 'input'
+type Screen = 'list' | 'input' | 'foodList'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('list')
@@ -26,6 +27,14 @@ function App() {
 
   function handleSaved() {
     setEditingRecordId(undefined)
+    setScreen('list')
+  }
+
+  function goToFoodList() {
+    setScreen('foodList')
+  }
+
+  function goToList() {
     setScreen('list')
   }
 
@@ -58,9 +67,12 @@ function App() {
             <RecordListScreen
               onNavigateToInput={goToCreate}
               onEditRecord={goToEdit}
+              onNavigateToFoodList={goToFoodList}
             />
-          ) : (
+          ) : screen === 'input' ? (
             <RecordInputScreen recordId={editingRecordId} onSaved={handleSaved} />
+          ) : (
+            <FoodListScreen onBack={goToList} />
           )}
         </div>
       </div>
