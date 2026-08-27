@@ -1,8 +1,11 @@
 import type { CompletionLevel, MealRecord } from "../types";
 import { COMPLETION_LEVEL_META, RECORDER_LABEL } from "../labels";
+import { formatTime } from "../format";
 
 interface RecordCardProps {
   record: MealRecord;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 const LEVEL_PILL_STYLE: Record<CompletionLevel, string> = {
@@ -11,14 +14,7 @@ const LEVEL_PILL_STYLE: Record<CompletionLevel, string> = {
   none: "bg-gray-100 text-gray-600",
 };
 
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  const hh = date.getHours().toString().padStart(2, "0");
-  const mm = date.getMinutes().toString().padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-function RecordCard({ record }: RecordCardProps) {
+function RecordCard({ record, onEdit, onDelete }: RecordCardProps) {
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
       <div className="mb-3 flex items-center justify-between">
@@ -39,6 +35,22 @@ function RecordCard({ record }: RecordCardProps) {
             <span>{item.foodName}</span>
           </span>
         ))}
+      </div>
+      <div className="mt-3 flex gap-2 border-t border-orange-50 pt-3">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="min-h-11 flex-1 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium text-gray-700 transition active:scale-95"
+        >
+          編集
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="min-h-11 flex-1 rounded-xl border-2 border-red-200 bg-white text-sm font-medium text-red-600 transition active:scale-95"
+        >
+          削除
+        </button>
       </div>
     </div>
   );

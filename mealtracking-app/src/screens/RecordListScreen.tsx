@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
-import { db } from "../db";
+import { db, deleteRecord } from "../db";
 import type { MealRecord } from "../types";
 import RecordCard from "../components/RecordCard";
 
 interface RecordListScreenProps {
   onNavigateToInput: () => void;
+  onEditRecord: (recordId: number) => void;
 }
 
-function RecordListScreen({ onNavigateToInput }: RecordListScreenProps) {
+function RecordListScreen({
+  onNavigateToInput,
+  onEditRecord,
+}: RecordListScreenProps) {
   const [records, setRecords] = useState<MealRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,6 +30,12 @@ function RecordListScreen({ onNavigateToInput }: RecordListScreenProps) {
       cancelled = true;
     };
   }, []);
+
+  async function handleDelete(recordId: number) {
+    if (!window.confirm("この記録を削除しますか？")) return;
+    await deleteRecord(recordId);
+    setRecords((prev) => prev.filter((record) => record.id !== recordId));
+  }
 
   return (
     <div className="px-4 py-6 sm:px-8">
@@ -59,7 +69,12 @@ function RecordListScreen({ onNavigateToInput }: RecordListScreenProps) {
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {records.map((record) => (
-              <RecordCard key={record.id} record={record} />
+              <RecordCard
+                key={record.id}
+                record={record}
+                onEdit={() => record.id !== undefined && onEditRecord(record.id)}
+                onDelete={() => record.id !== undefined && handleDelete(record.id)}
+              />
             ))}
           </div>
         )}

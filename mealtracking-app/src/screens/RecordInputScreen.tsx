@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { db } from "../db";
+import { db, updateRecord } from "../db";
 import type { CompletionLevel, Food, MealRecordItem } from "../types";
 import { useRecorder } from "../RecorderContext";
+import { formatTime } from "../format";
 import FoodChip from "../components/FoodChip";
 import CompletionLevelButton from "../components/CompletionLevelButton";
 
 const LEVELS: CompletionLevel[] = ["full", "half", "none"];
 
 interface RecordInputScreenProps {
+  recordId?: number;
   onSaved: () => void;
 }
 
-function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
+function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
+  const isEditMode = recordId !== undefined;
   const { recorder } = useRecorder();
 
   const [foods, setFoods] = useState<Food[]>([]);
@@ -23,6 +26,9 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
   const [selectedFoodIds, setSelectedFoodIds] = useState<number[]>([]);
   const [levels, setLevels] = useState<Partial<Record<number, CompletionLevel>>>(
     {},
+  );
+  const [originalRecordedAt, setOriginalRecordedAt] = useState<string | null>(
+    null,
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +60,29 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (recordId === undefined) return;
+    let cancelled = false;
+
+    async function loadRecord() {
+      const record = await db.records.get(recordId as number);
+      if (cancelled || !record) return;
+
+      setOriginalRecordedAt(record.recordedAt);
+      setSelectedFoodIds(record.items.map((item) => item.foodId));
+      setLevels(
+        Object.fromEntries(
+          record.items.map((item) => [item.foodId, item.level]),
+        ),
+      );
+    }
+
+    loadRecord();
+    return () => {
+      cancelled = true;
+    };
+  }, [recordId]);
 
   const foodMap = useMemo(() => {
     const map = new Map<number, Food>();
@@ -110,11 +139,19 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
       };
     });
 
-    await db.records.add({
-      recordedAt: new Date().toISOString(),
-      recordedBy: recorder,
-      items,
-    });
+    if (isEditMode) {
+      await updateRecord(recordId as number, {
+        recordedAt: originalRecordedAt ?? new Date().toISOString(),
+        recordedBy: recorder,
+        items,
+      });
+    } else {
+      await db.records.add({
+        recordedAt: new Date().toISOString(),
+        recordedBy: recorder,
+        items,
+      });
+    }
 
     setSelectedFoodIds([]);
     setLevels({});
@@ -130,11 +167,16 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
       <div className="mx-auto w-full max-w-2xl space-y-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-bold text-orange-900 sm:text-3xl">
-            記録する
+            {isEditMode ? "記録を編集" : "記録する"}
           </h1>
           <p className="text-sm text-orange-700 sm:text-base">
             食材を選んで、完食度を記録しましょう
           </p>
+          {isEditMode && originalRecordedAt && (
+            <p className="text-sm text-gray-500">
+              記録時刻：{formatTime(originalRecordedAt)}
+            </p>
+          )}
         </header>
 
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
@@ -213,7 +255,7 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
           onClick={handleSave}
           className="min-h-11 w-full rounded-xl bg-orange-500 px-4 py-3 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600"
         >
-          保存する
+          {isEditMode ? "更新する" : "保存する"}
         </button>
       </div>
     </div>

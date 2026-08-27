@@ -42,3 +42,14 @@ export async function seedInitialFoods(): Promise<void> {
     })),
   );
 }
+
+export async function updateRecord(
+  id: number,
+  changes: Partial<Omit<MealRecord, "id">>,
+): Promise<void> {
+  await db.records.update(id, changes);
+}
+
+export async function deleteRecord(id: number): Promise<void> {
+  await db.records.delete(id);
+}
