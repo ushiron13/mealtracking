@@ -5,6 +5,7 @@ import { useRecorder } from "../RecorderContext";
 import { formatTime, withTime } from "../format";
 import FoodChip from "../components/FoodChip";
 import CompletionLevelButton from "../components/CompletionLevelButton";
+import CategoryTabs, { type CategoryFilter } from "../components/CategoryTabs";
 
 const TIME_PATTERN = /^\d{2}:\d{2}$/;
 
@@ -30,6 +31,7 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
     {},
   );
   const [newFoodName, setNewFoodName] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [originalRecordedAt, setOriginalRecordedAt] = useState<string | null>(
     null,
   );
@@ -209,6 +211,11 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
     .map((id) => foodMap.get(id))
     .filter((food): food is Food => Boolean(food));
 
+  const displayedFoods =
+    selectedCategory === "all"
+      ? foods
+      : foods.filter((food) => food.category.includes(selectedCategory));
+
   return (
     <div className="px-4 py-6 sm:px-8">
       <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -241,13 +248,27 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
           <h2 className="mb-3 text-sm font-semibold text-gray-500">
             食材を選ぶ（複数選択可）
           </h2>
+
+          {!isLoading && foods.length > 0 && (
+            <div className="mb-3">
+              <CategoryTabs
+                selected={selectedCategory}
+                onSelect={setSelectedCategory}
+              />
+            </div>
+          )}
+
           {isLoading ? (
             <p className="text-sm text-gray-400">読み込み中...</p>
           ) : foods.length === 0 ? (
             <p className="text-sm text-gray-400">食材が登録されていません</p>
+          ) : displayedFoods.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              このカテゴリの食材はありません
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {foods.map((food) => (
+              {displayedFoods.map((food) => (
                 <FoodChip
                   key={food.id}
                   food={food}
