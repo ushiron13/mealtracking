@@ -29,6 +29,7 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
   const [levels, setLevels] = useState<Partial<Record<number, CompletionLevel>>>(
     {},
   );
+  const [newFoodName, setNewFoodName] = useState("");
   const [originalRecordedAt, setOriginalRecordedAt] = useState<string | null>(
     null,
   );
@@ -123,6 +124,33 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
   function handleTimeChange(value: string) {
     setTimeInputValue(value);
     setIsTimeManuallyEdited(TIME_PATTERN.test(value));
+  }
+
+  async function handleAddFood() {
+    const name = newFoodName.trim();
+    if (!name) return;
+
+    setError(null);
+
+    let food = await db.foods.where("name").equals(name).first();
+    if (!food) {
+      const createdAt = new Date().toISOString();
+      const id = await db.foods.add({ name, isFavorite: false, createdAt });
+      food = { id, name, isFavorite: false, createdAt };
+    }
+
+    const foodId = food.id;
+    if (foodId === undefined) return;
+
+    setFoods((prev) =>
+      prev.some((f) => f.id === foodId)
+        ? prev
+        : [...prev, food as Food].sort((a, b) =>
+            a.name.localeCompare(b.name, "ja"),
+          ),
+    );
+    setSelectedFoodIds((prev) => (prev.includes(foodId) ? prev : [...prev, foodId]));
+    setNewFoodName("");
   }
 
   async function handleSave() {
@@ -232,6 +260,28 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
               ))}
             </div>
           )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAddFood();
+            }}
+            className="mt-3 flex gap-2"
+          >
+            <input
+              type="text"
+              value={newFoodName}
+              onChange={(e) => setNewFoodName(e.target.value)}
+              placeholder="食材名を入力"
+              className="min-h-11 flex-1 rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-base text-gray-800 focus:border-orange-500 focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="min-h-11 shrink-0 rounded-xl border-2 border-orange-500 bg-white px-5 text-base font-medium text-orange-600 transition active:scale-95"
+            >
+              追加
+            </button>
+          </form>
         </section>
 
         {selectedFoods.length > 0 && (
