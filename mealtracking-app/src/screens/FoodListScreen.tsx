@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { db, deleteFood, updateFood } from "../db";
-import type { Food, FoodCategory } from "../types";
-import { FOOD_CATEGORIES, FOOD_CATEGORY_LABEL } from "../labels";
+import type { Food, FoodCategory, FoodPreference } from "../types";
+import {
+  FOOD_CATEGORIES,
+  FOOD_CATEGORY_LABEL,
+  FOOD_PREFERENCES,
+  FOOD_PREFERENCE_META,
+} from "../labels";
 import CategoryTabs, { type CategoryFilter } from "../components/CategoryTabs";
 
 interface FoodListScreenProps {
@@ -16,6 +21,10 @@ function FoodListScreen({ onBack }: FoodListScreenProps) {
   const [editingFood, setEditingFood] = useState<Food | null>(null);
   const [editName, setEditName] = useState("");
   const [editCategories, setEditCategories] = useState<FoodCategory[]>([]);
+  const [editFirstEatenDate, setEditFirstEatenDate] = useState("");
+  const [editPreference, setEditPreference] = useState<FoodPreference | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +52,8 @@ function FoodListScreen({ onBack }: FoodListScreenProps) {
     setEditingFood(food);
     setEditName(food.name);
     setEditCategories(food.category);
+    setEditFirstEatenDate(food.firstEatenDate ?? "");
+    setEditPreference(food.preference);
   }
 
   function closeEdit() {
@@ -57,17 +68,34 @@ function FoodListScreen({ onBack }: FoodListScreenProps) {
     );
   }
 
+  function togglePreference(preference: FoodPreference) {
+    setEditPreference((prev) => (prev === preference ? undefined : preference));
+  }
+
   async function handleSaveEdit() {
     const name = editName.trim();
     if (!name || editingFood?.id === undefined) return;
 
     const foodId = editingFood.id;
-    await updateFood(foodId, { name, category: editCategories });
+    const firstEatenDate = editFirstEatenDate || undefined;
+    const preference = editPreference;
+    await updateFood(foodId, {
+      name,
+      category: editCategories,
+      firstEatenDate,
+      preference,
+    });
     setFoods((prev) =>
       prev
         .map((food) =>
           food.id === foodId
-            ? { ...food, name, category: editCategories }
+            ? {
+                ...food,
+                name,
+                category: editCategories,
+                firstEatenDate,
+                preference,
+              }
             : food,
         )
         .sort((a, b) => a.name.localeCompare(b.name, "ja")),
@@ -127,9 +155,19 @@ function FoodListScreen({ onBack }: FoodListScreenProps) {
                 key={food.id}
                 className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100"
               >
-                <p className="mb-2 font-semibold text-gray-900">
-                  {food.name}
-                </p>
+                <div className="mb-2 flex items-center gap-1.5">
+                  <p className="font-semibold text-gray-900">{food.name}</p>
+                  {food.preference && (
+                    <span title={FOOD_PREFERENCE_META[food.preference].label}>
+                      {FOOD_PREFERENCE_META[food.preference].icon}
+                    </span>
+                  )}
+                </div>
+                {food.firstEatenDate && (
+                  <p className="mb-2 text-xs text-gray-500">
+                    はじめて食べた日：{food.firstEatenDate}
+                  </p>
+                )}
                 <div className="mb-3 flex flex-wrap gap-1.5">
                   {food.category.length === 0 ? (
                     <span className="text-xs text-gray-400">
@@ -172,7 +210,7 @@ function FoodListScreen({ onBack }: FoodListScreenProps) {
 
       {editingFood && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-lg">
             <h2 className="mb-4 text-lg font-bold text-gray-900">
               食材を編集
             </h2>
@@ -208,6 +246,40 @@ function FoodListScreen({ onBack }: FoodListScreenProps) {
                   }`}
                 >
                   {FOOD_CATEGORY_LABEL[category]}
+                </button>
+              ))}
+            </div>
+
+            <label
+              htmlFor="edit-food-first-eaten-date"
+              className="mb-1 block text-sm font-semibold text-gray-500"
+            >
+              はじめて食べた日
+            </label>
+            <input
+              id="edit-food-first-eaten-date"
+              type="date"
+              value={editFirstEatenDate}
+              onChange={(e) => setEditFirstEatenDate(e.target.value)}
+              className="mb-4 min-h-11 w-full max-w-[12rem] rounded-xl border-2 border-gray-200 px-4 py-2.5 text-base text-gray-800 focus:border-orange-500 focus:outline-none"
+            />
+
+            <p className="mb-2 text-sm font-semibold text-gray-500">好み</p>
+            <div className="mb-6 flex flex-wrap gap-2">
+              {FOOD_PREFERENCES.map((preference) => (
+                <button
+                  key={preference}
+                  type="button"
+                  onClick={() => togglePreference(preference)}
+                  aria-pressed={editPreference === preference}
+                  className={`min-h-11 min-w-11 inline-flex items-center gap-1.5 rounded-full border-2 px-4 py-2 text-sm font-medium transition active:scale-95 ${
+                    editPreference === preference
+                      ? "border-orange-500 bg-orange-500 text-white"
+                      : "border-gray-200 bg-white text-gray-700"
+                  }`}
+                >
+                  <span>{FOOD_PREFERENCE_META[preference].icon}</span>
+                  <span>{FOOD_PREFERENCE_META[preference].label}</span>
                 </button>
               ))}
             </div>

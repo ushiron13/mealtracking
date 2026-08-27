@@ -3,6 +3,8 @@ export interface Food {
   name: string;
   isFavorite: boolean;
   category: FoodCategory[];
+  firstEatenDate?: string;
+  preference?: FoodPreference;
   createdAt: string;
 }
 
@@ -17,6 +19,8 @@ export type FoodCategory =
   | "seasoning"
   | "beverage"
   | "other";
+
+export type FoodPreference = "like" | "neutral" | "dislike" | "allergy";
 
 export interface MealRecord {
   id?: number;
