@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { db } from "../db";
+import { db, updateRecord } from "../db";
 import type { CompletionLevel, Food, MealRecordItem } from "../types";
 import { useRecorder } from "../RecorderContext";
+import { formatTime, withTime } from "../format";
 import FoodChip from "../components/FoodChip";
 import CompletionLevelButton from "../components/CompletionLevelButton";
+
+const TIME_PATTERN = /^\d{2}:\d{2}$/;
 
 const LEVELS: CompletionLevel[] = ["full", "half", "none"];
 
 interface RecordInputScreenProps {
+  recordId?: number;
   onSaved: () => void;
 }
 
-function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
+function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
+  const isEditMode = recordId !== undefined;
   const { recorder } = useRecorder();
 
   const [foods, setFoods] = useState<Food[]>([]);
@@ -24,6 +29,14 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
   const [levels, setLevels] = useState<Partial<Record<number, CompletionLevel>>>(
     {},
   );
+  const [newFoodName, setNewFoodName] = useState("");
+  const [originalRecordedAt, setOriginalRecordedAt] = useState<string | null>(
+    null,
+  );
+  const [timeInputValue, setTimeInputValue] = useState(() =>
+    formatTime(new Date().toISOString()),
+  );
+  const [isTimeManuallyEdited, setIsTimeManuallyEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -55,6 +68,31 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (recordId === undefined) return;
+    let cancelled = false;
+
+    async function loadRecord() {
+      const record = await db.records.get(recordId as number);
+      if (cancelled || !record) return;
+
+      setOriginalRecordedAt(record.recordedAt);
+      setTimeInputValue(formatTime(record.recordedAt));
+      setIsTimeManuallyEdited(false);
+      setSelectedFoodIds(record.items.map((item) => item.foodId));
+      setLevels(
+        Object.fromEntries(
+          record.items.map((item) => [item.foodId, item.level]),
+        ),
+      );
+    }
+
+    loadRecord();
+    return () => {
+      cancelled = true;
+    };
+  }, [recordId]);
+
   const foodMap = useMemo(() => {
     const map = new Map<number, Food>();
     for (const food of foods) {
@@ -81,6 +119,38 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
   function selectLevel(foodId: number, level: CompletionLevel) {
     setError(null);
     setLevels((prev) => ({ ...prev, [foodId]: level }));
+  }
+
+  function handleTimeChange(value: string) {
+    setTimeInputValue(value);
+    setIsTimeManuallyEdited(TIME_PATTERN.test(value));
+  }
+
+  async function handleAddFood() {
+    const name = newFoodName.trim();
+    if (!name) return;
+
+    setError(null);
+
+    let food = await db.foods.where("name").equals(name).first();
+    if (!food) {
+      const createdAt = new Date().toISOString();
+      const id = await db.foods.add({ name, isFavorite: false, createdAt });
+      food = { id, name, isFavorite: false, createdAt };
+    }
+
+    const foodId = food.id;
+    if (foodId === undefined) return;
+
+    setFoods((prev) =>
+      prev.some((f) => f.id === foodId)
+        ? prev
+        : [...prev, food as Food].sort((a, b) =>
+            a.name.localeCompare(b.name, "ja"),
+          ),
+    );
+    setSelectedFoodIds((prev) => (prev.includes(foodId) ? prev : [...prev, foodId]));
+    setNewFoodName("");
   }
 
   async function handleSave() {
@@ -110,11 +180,25 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
       };
     });
 
-    await db.records.add({
-      recordedAt: new Date().toISOString(),
-      recordedBy: recorder,
-      items,
-    });
+    const hasManualTime = isTimeManuallyEdited && TIME_PATTERN.test(timeInputValue);
+
+    if (isEditMode) {
+      const baseRecordedAt = originalRecordedAt ?? new Date().toISOString();
+      await updateRecord(recordId as number, {
+        recordedAt: hasManualTime
+          ? withTime(baseRecordedAt, timeInputValue)
+          : baseRecordedAt,
+        recordedBy: recorder,
+        items,
+      });
+    } else {
+      const now = new Date().toISOString();
+      await db.records.add({
+        recordedAt: hasManualTime ? withTime(now, timeInputValue) : now,
+        recordedBy: recorder,
+        items,
+      });
+    }
 
     setSelectedFoodIds([]);
     setLevels({});
@@ -130,12 +214,28 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
       <div className="mx-auto w-full max-w-2xl space-y-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-bold text-orange-900 sm:text-3xl">
-            記録する
+            {isEditMode ? "記録を編集" : "記録する"}
           </h1>
           <p className="text-sm text-orange-700 sm:text-base">
             食材を選んで、完食度を記録しましょう
           </p>
         </header>
+
+        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
+          <label
+            htmlFor="recorded-time"
+            className="mb-3 block text-sm font-semibold text-gray-500"
+          >
+            記録時刻
+          </label>
+          <input
+            id="recorded-time"
+            type="time"
+            value={timeInputValue}
+            onChange={(e) => handleTimeChange(e.target.value)}
+            className="min-h-11 w-full max-w-[12rem] rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-base font-medium text-gray-800 focus:border-orange-500 focus:outline-none"
+          />
+        </section>
 
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
           <h2 className="mb-3 text-sm font-semibold text-gray-500">
@@ -160,6 +260,28 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
               ))}
             </div>
           )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAddFood();
+            }}
+            className="mt-3 flex gap-2"
+          >
+            <input
+              type="text"
+              value={newFoodName}
+              onChange={(e) => setNewFoodName(e.target.value)}
+              placeholder="食材名を入力"
+              className="min-h-11 flex-1 rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-base text-gray-800 focus:border-orange-500 focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="min-h-11 shrink-0 rounded-xl border-2 border-orange-500 bg-white px-5 text-base font-medium text-orange-600 transition active:scale-95"
+            >
+              追加
+            </button>
+          </form>
         </section>
 
         {selectedFoods.length > 0 && (
@@ -213,7 +335,7 @@ function RecordInputScreen({ onSaved }: RecordInputScreenProps) {
           onClick={handleSave}
           className="min-h-11 w-full rounded-xl bg-orange-500 px-4 py-3 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600"
         >
-          保存する
+          {isEditMode ? "更新する" : "保存する"}
         </button>
       </div>
     </div>

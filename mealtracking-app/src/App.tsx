@@ -10,6 +10,24 @@ type Screen = 'list' | 'input'
 function App() {
   const [screen, setScreen] = useState<Screen>('list')
   const [recorder, setRecorder] = useState<Recorder>('mother')
+  const [editingRecordId, setEditingRecordId] = useState<number | undefined>(
+    undefined,
+  )
+
+  function goToCreate() {
+    setEditingRecordId(undefined)
+    setScreen('input')
+  }
+
+  function goToEdit(recordId: number) {
+    setEditingRecordId(recordId)
+    setScreen('input')
+  }
+
+  function handleSaved() {
+    setEditingRecordId(undefined)
+    setScreen('list')
+  }
 
   return (
     <RecorderContext.Provider value={{ recorder, setRecorder }}>
@@ -37,9 +55,12 @@ function App() {
 
         <div className="flex-1">
           {screen === 'list' ? (
-            <RecordListScreen onNavigateToInput={() => setScreen('input')} />
+            <RecordListScreen
+              onNavigateToInput={goToCreate}
+              onEditRecord={goToEdit}
+            />
           ) : (
-            <RecordInputScreen onSaved={() => setScreen('list')} />
+            <RecordInputScreen recordId={editingRecordId} onSaved={handleSaved} />
           )}
         </div>
       </div>
