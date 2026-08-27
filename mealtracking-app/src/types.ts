@@ -2,8 +2,25 @@ export interface Food {
   id?: number;
   name: string;
   isFavorite: boolean;
+  category: FoodCategory[];
+  firstEatenDate?: string;
+  preference?: FoodPreference;
   createdAt: string;
 }
+
+export type FoodCategory =
+  | "carbohydrate"
+  | "vegetable"
+  | "fruit"
+  | "meat"
+  | "fish"
+  | "bean"
+  | "dairy_egg"
+  | "seasoning"
+  | "beverage"
+  | "other";
+
+export type FoodPreference = "like" | "neutral" | "dislike" | "allergy";
 
 export interface MealRecord {
   id?: number;

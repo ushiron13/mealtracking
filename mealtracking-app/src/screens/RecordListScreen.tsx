@@ -6,11 +6,13 @@ import RecordCard from "../components/RecordCard";
 interface RecordListScreenProps {
   onNavigateToInput: () => void;
   onEditRecord: (recordId: number) => void;
+  onNavigateToFoodList: () => void;
 }
 
 function RecordListScreen({
   onNavigateToInput,
   onEditRecord,
+  onNavigateToFoodList,
 }: RecordListScreenProps) {
   const [records, setRecords] = useState<MealRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,13 +51,22 @@ function RecordListScreen({
               離乳食の記録を確認できます
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onNavigateToInput}
-            className="min-h-11 shrink-0 rounded-xl bg-orange-500 px-5 py-3 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600"
-          >
-            ＋ 記録する
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={onNavigateToFoodList}
+              className="min-h-11 rounded-xl border-2 border-orange-500 bg-white px-5 text-base font-medium text-orange-600 transition active:scale-95"
+            >
+              食材一覧
+            </button>
+            <button
+              type="button"
+              onClick={onNavigateToInput}
+              className="min-h-11 rounded-xl bg-orange-500 px-5 py-3 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600"
+            >
+              ＋ 記録する
+            </button>
+          </div>
         </header>
 
         {isLoading ? (
