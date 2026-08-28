@@ -1,6 +1,7 @@
 # 離乳食トラッキング M1：技術設計書
 
-> 本ドキュメントは離乳食トラッキング機能のM1（最小記録機能）実装に向けた技術仕様・データモデルをまとめたものです。
+> 本ドキュメントは離乳食トラッキング機能のM1・M1.5・M1.6（最小記録機能・CRUD補完・食材カテゴリ管理）に関する技術仕様・データモデルをまとめたものです。
+> M2以降（M3：アレルギー管理、M2：献立記録＋週間献立表）の技術仕様は `mealtracking_m2_design.md` を参照してください。
 > ユースケース・画面構成の詳細は `mealtracking_usecase_ui.md`、全体要件は `persona_usecase_mvp.md` を参照してください。
 > 本ドキュメントの内容をもとに、Claude Codeでの実装に進む想定です。
 
@@ -160,7 +161,7 @@ mealtracking-app/
 ## 7. 将来の拡張に向けた留意点
 
 - 夫婦間のリアルタイム共有が必要になった場合、`recordedBy` のローカル切替方式から、サーバー同期＋アカウント方式への移行が発生する。M1のデータモデルはこの移行を見据え、`recordedBy` を早期から独立フィールドとして持たせている
-- M3（アレルギー・初回食材管理）では `Food` に症状メモ・初回摂取日等のフィールド追加が必要になる見込み
+- M2以降（M3：アレルギー・初回食材管理、M2：献立記録＋週間献立表）の技術仕様は `mealtracking_m2_design.md` に分離した
 
 ---
 
@@ -203,78 +204,11 @@ if (!existing) {
 
 ---
 
-## 9. M2：献立記録のデータモデル（再設計）
+## 9. M1.6：食材カテゴリ・食材一覧管理
 
-M1運用フィードバックにより、「献立（作ったもの）」と「摂取実績（食べたもの）」を別レイヤーとして扱う方針に変更した（`mealtracking_usecase_ui.md` 9.3参照）。入力フローの詳細確定（UC7）に伴い、当初案から`foodTags`を削除し`menuName`の自由記述に一本化した。
+> M1.5完了後に判明した課題（`mealtracking_usecase_ui.md` 9.5参照）への対応。実装順序としてはM2・M3（`mealtracking_m2_design.md`参照）より先行する。
 
-### 9.1 新設テーブル：`MenuRecord`
-
-```typescript
-export interface MenuRecord {
-  id?: number;
-  date: string;           // ISO8601（日付のみ運用、例: "2026-08-27"）
-  mealTiming: MealTiming; // "breakfast" | "lunch" | "dinner" | "snack" 等
-  menuName: string;       // 献立名（自由テキスト、例: "鶏と根菜の煮物、にんじん、じゃがいも"）
-  comment?: string;       // 感想・メモ（任意）
-  isPlan: boolean;        // true: 予定のみ, false: 実施済み記録
-  recordedBy?: Recorder;  // 実施済み記録の場合の記録者（予定のみの場合は未設定でよい）
-  createdAt: string;
-}
-
-export type MealTiming = "breakfast" | "lunch" | "dinner" | "snack";
-```
-
-**`foodTags`を採用しなかった理由**：UC7で確定した入力フローは「献立名を自由テキストで一行入力（例：『鶏と根菜の煮物、にんじん、じゃがいも』）し、カンマ区切りをシステム側で自動タグ化はしない」というもの。構造化されたタグ配列ではなく、自由記述の`menuName`一本に単純化した方が、実際の入力体験（UC7）と一致する。食材ごとの構造化データが必要な場面は、既存の`MealRecord.items`（食材＋完食度）が担う。
-
-### 9.2 `MealRecord` との関係・紐付けの実装方針
-
-- `MenuRecord`（献立：何を作ったか）と `MealRecord`（摂取実績：食べた食材ごとの完食度）は**独立したテーブルとし、強参照は持たせない**
-- 週間献立表画面では、同じ`date`＋`mealTiming`のレコードを突き合わせて並列表示する（緩い紐付け）
-- この設計判断の理由：献立と摂取実績は記録者にとって別々に発生するイベントであり、無理に1つのレコードに統合すると「メニューは決まったが記録は未入力」等の中間状態を表現しづらくなるため
-
-### 9.3 UC7（献立記録の入力）に対応する保存処理
-
-記録入力画面（②）の保存処理は以下のロジックに拡張する。
-
-```typescript
-async function saveRecord(menuName: string, comment: string, items: MealRecordItem[], recordedBy: Recorder) {
-  const now = new Date().toISOString();
-  const today = now.slice(0, 10); // "YYYY-MM-DD"
-  const mealTiming = inferMealTiming(now); // 現在時刻から朝/昼/夕を推定
-
-  // 摂取実績は常に保存（UC1と同じ、後方互換）
-  await db.records.add({ recordedAt: now, recordedBy, items });
-
-  // 献立名が入力されていれば MenuRecord も作成・更新
-  if (menuName.trim() !== "") {
-    const existing = await db.menuRecords
-      .where({ date: today, mealTiming })
-      .first();
-    if (existing) {
-      // 予定済みのセルがあれば実施済みに更新（UC8：新規追加ではなく上書き）
-      await db.menuRecords.update(existing.id!, {
-        menuName, comment, isPlan: false, recordedBy
-      });
-    } else {
-      await db.menuRecords.add({
-        date: today, mealTiming, menuName, comment,
-        isPlan: false, recordedBy, createdAt: now
-      });
-    }
-  }
-}
-```
-
-- 献立名が空欄の場合は`MenuRecord`を作らず`MealRecord`のみ保存（UC7の後方互換要件）
-- 同じ`date`＋`mealTiming`に既存の予定（`isPlan: true`）があれば、新規レコードを追加するのではなく上書きする（UC8）
-
----
-
-## 10. M1.6：食材カテゴリ・食材一覧管理
-
-> M1.5完了後に判明した課題（`mealtracking_usecase_ui.md` 9.5参照）への対応。実装順序としてはM2（9章）より先行する。
-
-### 10.1 `Food`型の拡張
+### 9.1 `Food`型の拡張
 
 ```typescript
 export interface Food {
@@ -301,7 +235,7 @@ export type FoodCategory =
 - カテゴリは**種類軸のみ**を採用する（栄養素軸は不採用。理由は`mealtracking_usecase_ui.md` 9.5参照）
 - 1食材に複数カテゴリを許容する配列型とする（例：豆腐は`["bean"]`のみでもよいし、将来的に複数該当する食材が出てきても対応できる）
 
-### 10.2 Dexieスキーマの変更
+### 9.2 Dexieスキーマの変更
 
 `category`は配列のため、Dexieの複合インデックス（`*category`のようなmulti-entry index）を使うと、カテゴリでの絞り込みクエリが効率化できる。
 
@@ -326,7 +260,7 @@ this.version(2).stores({
 });
 ```
 
-### 10.3 記録入力画面（②）でのカテゴリ絞り込み（UC10）
+### 9.3 記録入力画面（②）でのカテゴリ絞り込み（UC10）
 
 ```typescript
 // 選択中のカテゴリタブに応じて表示するチップを絞り込む
@@ -337,7 +271,7 @@ const displayedFoods = selectedCategory === "all"
 
 - 「すべて」タブ選択時は絞り込みなしで全件表示（既存のM1動作を維持）
 
-### 10.4 食材一覧画面（⑤）のデータ操作（UC11）
+### 9.4 食材一覧画面（⑤）のデータ操作（UC11）
 
 | 操作 | 内容 |
 |---|---|
@@ -347,24 +281,4 @@ const displayedFoods = selectedCategory === "all"
 
 **削除時の非破壊性について**：`MealRecordItem.foodName`は記録時点で非正規化保持されているため（3.2参照）、`Food`側のレコードを削除しても過去の`MealRecord`の表示には影響しない。これは3.2で述べた設計判断がM1.6でも活きている一例。
 
-### 10.5 （計画外の追加）「はじめて食べた日」「好み」の記録
-
-M1.6実装中に、ユースケース・タスクリストには元々含まれていなかった追加要望として、食材ごとに「はじめて食べた日」と「好み」を記録・編集できるようにした。
-
-```typescript
-export interface Food {
-  id?: number;
-  name: string;
-  isFavorite: boolean;
-  category: FoodCategory[];
-  firstEatenDate?: string;   // 追加：YYYY-MM-DD形式、任意項目
-  preference?: FoodPreference; // 追加：任意項目
-  createdAt: string;
-}
-
-export type FoodPreference = "like" | "neutral" | "dislike" | "allergy";
-```
-
-- どちらも任意項目（未設定を許容）で、インデックスは張らないためDexieのバージョンアップは不要（既存の`foods`ストア定義のまま、プロパティの有無が混在しても問題ない）
-- 食材一覧画面（⑤）の編集モーダルから設定・解除できる（`db.foods.update(foodId, { firstEatenDate, preference, ... })`）
-- `RecordInputScreen`の既存「はじめて」バッジ（`records.items[].foodName`を都度スキャンして算出する自動判定、3.2参照）とは別物。あちらは記録ベースの自動判定、こちらは利用者が手動で管理する独立フィールド（アプリ導入前に食べた食材の遡及入力や記録内容の訂正に対応するため）
+---

@@ -1,9 +1,10 @@
-# 離乳食トラッキング：Claude Code実装指示書
+# 離乳食トラッキング M1系：Claude Code実装指示書
 
-> 本ドキュメントは `mealtracking_m1_design.md`（技術設計）と `mealtracking_usecase_ui.md`（ユースケース・画面設計）をもとに、Claude Codeへの実装指示をステップ単位で整理したものです。
+> 本ドキュメントは `mealtracking_m1_design.md`（M1・M1.5・M1.6の技術設計）と `mealtracking_usecase_ui.md`（ユースケース・画面設計）をもとに、Claude Codeへの実装指示をステップ単位で整理したものです。
 > 各ステップはそれぞれ動作確認できる粒度に分割しています。上から順に、1ステップずつClaude Codeに渡して進めることを想定しています。
+> M2以降（M3：アレルギー管理、M2：献立記録＋週間献立表）は `mealtracking_claude_code_instructions_m2.md` に分離しています。
 >
-> **ステップ0〜5（M1）・ステップ6〜9（M1.5）・ステップ10〜13（M1.6）は実装完了済みです。** M1.6では計画外の追加要望として、食材ごとの「はじめて食べた日」「好み（好き／普通／嫌い／アレルギー）」の記録機能も食材一覧画面に追加しました。次はステップ14〜16でM2（献立記録＋週間献立表）を進めます。
+> **ステップ0〜13（M1・M1.5・M1.6）はすべて実装完了済みです。** 本ドキュメントは完了した実装の記録として残します。
 
 ---
 
@@ -287,71 +288,7 @@ Tailwind CSSでスタイリングし、iPad画面幅で見やすいリストレ�
 
 ---
 
-## M2：献立記録＋週間献立表
-
-> `mealtracking_m1_design.md` 9章（MenuRecordのデータモデル）に基づく実装。UC7〜UC9対応。
-
-## ステップ14：MenuRecordテーブルの実装
-
-```
-src/db.ts に以下を追加してください。
-
-【型定義】
-- MenuRecord: { id?: number, date: string, mealTiming: MealTiming, menuName: string, comment?: string, isPlan: boolean, recordedBy?: Recorder, createdAt: string }
-- MealTiming: "breakfast" | "lunch" | "dinner" | "snack"
-
-【Dexieスキーマ】
-- menuRecords テーブル: '++id, date, mealTiming, isPlan' としてバージョンを上げて追加する
-  （Dexieのバージョンマイグレーションを使い、既存のfoods/recordsテーブルのデータには影響を与えないこと）
-
-型定義は src/types.ts に追加してください。
-```
-
----
-
-## ステップ15：記録入力画面への献立記録機能の統合
-
-```
-RecordInputScreen を以下の要件で拡張してください（`mealtracking_m1_design.md` 9.3のロジックを実装する）。
-
-【機能要件】
-1. 食材選択の前に、献立名（1行テキスト、任意項目）と感想（1行テキスト、任意項目）の入力欄を追加する
-   - プレースホルダー例：献立名「例：鶏と根菜の煮物、にんじん、じゃがいも」
-2. 保存処理を以下のロジックに拡張する
-   - 摂取実績（MealRecord）は常に保存する（既存動作を維持）
-   - 献立名が空欄でなければ、現在時刻から推定した mealTiming（例: 5-10時→breakfast, 10-15時→lunch, 15-19時→dinner, それ以外→snack）と当日の date で db.menuRecords を検索する
-     - 既存の予定（isPlan: true）があれば update で isPlan: false, menuName, comment, recordedBy を上書きする
-     - なければ新規に add する（isPlan: false）
-   - 献立名が空欄なら menuRecords への操作は行わない（UC7の後方互換要件）
-3. 献立名・感想欄は保存後にリセットする（既存の食材選択リセットと同様）
-
-既存のUC1（食材＋完食度のみの記録）が引き続き問題なく動作することを確認してください。
-```
-
----
-
-## ステップ16：週間献立表画面の実装
-
-```
-src/screens/WeeklyMenuScreen.tsx として、週間献立表画面を実装してください。
-
-【機能要件】
-1. 表形式で表示する：縦軸＝曜日（当該週の月〜日等）、横軸＝食事タイミング（breakfast/lunch/dinner。snackは任意で列追加）
-2. 各セルに対応する date + mealTiming の MenuRecord を db.menuRecords から取得して表示する
-   - menuName（上段）
-   - isPlan: false（実施済み）の場合は完食度サマリーのアイコンも表示する（対応する MealRecord を date + recordedAt の時間帯から緩く突き合わせる）
-   - 予定（isPlan: true）と実施済み（isPlan: false）を視覚的に区別する（例：予定は薄い色、実施済みは通常色）
-3. セルをタップすると編集モーダルが開き、以下ができる
-   - 新規に予定を立てる（menuName入力、isPlan: true で保存）
-   - 既存の予定・記録のmenuName・commentを編集する
-4. App.tsx に画面遷移（"list" | "input" | "weeklyMenu"）を追加し、この画面への導線（タブやボタン）を用意する
-
-Tailwind CSSでスタイリングし、iPad画面幅で7日分×3〜4区分の表が見やすく収まるレイアウトにしてください。
-```
-
----
-
-## 各ステップ完了後のチェックリスト（`mealtracking_usecase_ui.md` 6〜8章と対応）
+## 各ステップ完了後のチェックリスト（`mealtracking_usecase_ui.md` 6〜7.5章と対応）
 
 ### M1（完了済み）
 - [x] ステップ0〜5完了 → 6章のタスクはすべてチェック済み
@@ -367,11 +304,7 @@ Tailwind CSSでスタイリングし、iPad画面幅で7日分×3〜4区分の�
 - [x] ステップ11完了 → 「記録入力画面（②）へのカテゴリタブ追加・絞り込みロジック実装」にチェック
 - [x] ステップ12完了 → 「食材一覧画面（⑤）の新規実装」「編集機能」「削除機能」にチェック
 - [x] ステップ13完了 → 「食材削除後も過去記録の表示が壊れないことを確認」にチェック
-- [x] （計画外の追加）食材ごとの「はじめて食べた日」「好み」記録機能を食材一覧画面に追加
 
-### M2
-- [ ] ステップ14完了 → 「MenuRecordテーブルの実装」にチェック
-- [ ] ステップ15完了 → 「保存処理の拡張」にチェック
-- [ ] ステップ16完了 → 「②記録入力画面の拡張」「週間献立表画面（③）の実装」「セルタップでの予定編集モーダル」にチェック
+M2以降（M3：アレルギー・初回食材管理、M2：献立記録＋週間献立表）の実装ステップは `mealtracking_claude_code_instructions_m2.md` を参照してください。
 
 各ステップ完了時は `mealtracking_usecase_ui.md` の該当タスクにチェックを入れて進捗を反映してください。
