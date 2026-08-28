@@ -340,7 +340,7 @@ MVP3機能（①食材在庫管理　②大人用献立提案　③離乳食ト�
 - [x] データモデル設計（`SymptomRecord`新設、`Food.isTried`追加、`mealtracking_m2_design.md` 1章）
 
 ### 実装
-- [ ] `Food`型への`isTried`フィールド追加、DBマイグレーション
+- [x] `Food`型への`isTried`フィールド追加、DBマイグレーション
 - [ ] `SymptomRecord`テーブルの新設（Dexieスキーマ追加）
 - [ ] 「はじめて」判定ロジックの切り替え（都度スキャン→`Food.isTried`参照）
 - [ ] 記録保存時に`isTried`を自動更新する処理（初めての食材を記録した際にフラグを立てる）

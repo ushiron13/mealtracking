@@ -137,8 +137,14 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
     let food = await db.foods.where("name").equals(name).first();
     if (!food) {
       const createdAt = new Date().toISOString();
-      const id = await db.foods.add({ name, isFavorite: false, category: [], createdAt });
-      food = { id, name, isFavorite: false, category: [], createdAt };
+      const id = await db.foods.add({
+        name,
+        isFavorite: false,
+        category: [],
+        isTried: false,
+        createdAt,
+      });
+      food = { id, name, isFavorite: false, category: [], isTried: false, createdAt };
     }
 
     const foodId = food.id;

@@ -5,6 +5,7 @@ export interface Food {
   category: FoodCategory[];
   firstEatenDate?: string;
   preference?: FoodPreference;
+  isTried: boolean;
   createdAt: string;
 }
 

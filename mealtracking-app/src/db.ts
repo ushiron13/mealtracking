@@ -59,6 +59,38 @@ export class MealTrackingDB extends Dexie {
             if (!food.category) food.category = [];
           });
       });
+    this.version(3)
+      .stores({
+        foods: "++id, name, isFavorite, *category, isTried",
+        records: "++id, recordedAt, recordedBy",
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table("foods")
+          .toCollection()
+          .modify((food) => {
+            if (food.isTried === undefined) food.isTried = false;
+          });
+
+        // 初期化用マイグレーション：既存recordsを一度だけスキャンし、
+        // 記録済みの食材のisTriedをtrueに設定する（M3導入時点で「はじめて」表示にならないようにするため）
+        const triedFoodIds = new Set<number>();
+        await tx
+          .table("records")
+          .toCollection()
+          .each((record: MealRecord) => {
+            for (const item of record.items) {
+              triedFoodIds.add(item.foodId);
+            }
+          });
+        if (triedFoodIds.size > 0) {
+          await tx
+            .table("foods")
+            .where("id")
+            .anyOf(Array.from(triedFoodIds))
+            .modify({ isTried: true });
+        }
+      });
   }
 }
 
@@ -74,6 +106,7 @@ export async function seedInitialFoods(): Promise<void> {
       name,
       isFavorite: true,
       category,
+      isTried: false,
       createdAt: now,
     })),
   );
