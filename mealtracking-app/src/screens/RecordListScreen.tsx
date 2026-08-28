@@ -7,23 +7,36 @@ interface RecordListScreenProps {
   onNavigateToInput: () => void;
   onEditRecord: (recordId: number) => void;
   onNavigateToFoodList: () => void;
+  onNavigateToFirstTryList: () => void;
+  onRecordSymptom: (recordId: number) => void;
 }
 
 function RecordListScreen({
   onNavigateToInput,
   onEditRecord,
   onNavigateToFoodList,
+  onNavigateToFirstTryList,
+  onRecordSymptom,
 }: RecordListScreenProps) {
   const [records, setRecords] = useState<MealRecord[]>([]);
+  const [recordIdsWithSymptom, setRecordIdsWithSymptom] = useState<
+    Set<number>
+  >(new Set());
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const allRecords = await db.records.orderBy("recordedAt").reverse().toArray();
+      const [allRecords, allSymptomRecords] = await Promise.all([
+        db.records.orderBy("recordedAt").reverse().toArray(),
+        db.symptomRecords.toArray(),
+      ]);
       if (cancelled) return;
       setRecords(allRecords);
+      setRecordIdsWithSymptom(
+        new Set(allSymptomRecords.map((s) => s.mealRecordId)),
+      );
       setIsLoading(false);
     }
 
@@ -51,7 +64,14 @@ function RecordListScreen({
               離乳食の記録を確認できます
             </p>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onNavigateToFirstTryList}
+              className="min-h-11 rounded-xl border-2 border-orange-500 bg-white px-5 text-base font-medium text-orange-600 transition active:scale-95"
+            >
+              初回食材の履歴
+            </button>
             <button
               type="button"
               onClick={onNavigateToFoodList}
@@ -83,8 +103,14 @@ function RecordListScreen({
               <RecordCard
                 key={record.id}
                 record={record}
+                hasSymptomRecord={
+                  record.id !== undefined && recordIdsWithSymptom.has(record.id)
+                }
                 onEdit={() => record.id !== undefined && onEditRecord(record.id)}
                 onDelete={() => record.id !== undefined && handleDelete(record.id)}
+                onRecordSymptom={() =>
+                  record.id !== undefined && onRecordSymptom(record.id)
+                }
               />
             ))}
           </div>

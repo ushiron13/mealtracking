@@ -1,4 +1,10 @@
-import type { CompletionLevel, FoodCategory, FoodPreference, Recorder } from "./types";
+import type {
+  CompletionLevel,
+  FoodCategory,
+  FoodPreference,
+  Recorder,
+  SymptomSeverity,
+} from "./types";
 
 export const RECORDER_LABEL: Record<Recorder, string> = {
   father: "父",
@@ -55,4 +61,19 @@ export const FOOD_PREFERENCES: FoodPreference[] = [
   "neutral",
   "dislike",
   "allergy",
+];
+
+export const SYMPTOM_SEVERITY_META: Record<
+  SymptomSeverity,
+  { icon: string; label: string }
+> = {
+  mild: { icon: "🙂", label: "軽微" },
+  moderate: { icon: "😟", label: "中等度" },
+  severe: { icon: "😣", label: "重度" },
+};
+
+export const SYMPTOM_SEVERITIES: SymptomSeverity[] = [
+  "mild",
+  "moderate",
+  "severe",
 ];

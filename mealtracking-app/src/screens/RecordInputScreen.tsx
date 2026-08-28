@@ -21,9 +21,6 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
   const { recorder } = useRecorder();
 
   const [foods, setFoods] = useState<Food[]>([]);
-  const [recordedFoodNames, setRecordedFoodNames] = useState<Set<string>>(
-    new Set(),
-  );
   const [isLoading, setIsLoading] = useState(true);
 
   const [selectedFoodIds, setSelectedFoodIds] = useState<number[]>([]);
@@ -45,22 +42,11 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
     let cancelled = false;
 
     async function load() {
-      const [allFoods, allRecords] = await Promise.all([
-        db.foods.toArray(),
-        db.records.toArray(),
-      ]);
+      const allFoods = await db.foods.toArray();
       if (cancelled) return;
 
       allFoods.sort((a, b) => a.name.localeCompare(b.name, "ja"));
       setFoods(allFoods);
-
-      const names = new Set<string>();
-      for (const record of allRecords) {
-        for (const item of record.items) {
-          names.add(item.foodName);
-        }
-      }
-      setRecordedFoodNames(names);
       setIsLoading(false);
     }
 
@@ -137,8 +123,14 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
     let food = await db.foods.where("name").equals(name).first();
     if (!food) {
       const createdAt = new Date().toISOString();
-      const id = await db.foods.add({ name, isFavorite: false, category: [], createdAt });
-      food = { id, name, isFavorite: false, category: [], createdAt };
+      const id = await db.foods.add({
+        name,
+        isFavorite: false,
+        category: [],
+        isTried: false,
+        createdAt,
+      });
+      food = { id, name, isFavorite: false, category: [], isTried: false, createdAt };
     }
 
     const foodId = food.id;
@@ -153,6 +145,17 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
     );
     setSelectedFoodIds((prev) => (prev.includes(foodId) ? prev : [...prev, foodId]));
     setNewFoodName("");
+  }
+
+  async function markFoodsAsTried(foodIds: number[]) {
+    await Promise.all(
+      foodIds.map(async (foodId) => {
+        const food = await db.foods.get(foodId);
+        if (food && !food.isTried) {
+          await db.foods.update(foodId, { isTried: true });
+        }
+      }),
+    );
   }
 
   async function handleSave() {
@@ -201,6 +204,8 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
         items,
       });
     }
+
+    await markFoodsAsTried(selectedFoodIds);
 
     setSelectedFoodIds([]);
     setLevels({});
@@ -275,7 +280,7 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
                   selected={
                     food.id !== undefined && selectedFoodIds.includes(food.id)
                   }
-                  isFirstTime={!recordedFoodNames.has(food.name)}
+                  isFirstTime={!food.isTried}
                   onToggle={() => food.id !== undefined && toggleFood(food.id)}
                 />
               ))}
@@ -317,12 +322,11 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
                     <span className="font-medium text-gray-800">
                       {food.name}
                     </span>
-                    {food.id !== undefined &&
-                      !recordedFoodNames.has(food.name) && (
-                        <span className="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-semibold text-amber-900">
-                          はじめて
-                        </span>
-                      )}
+                    {!food.isTried && (
+                      <span className="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                        はじめて
+                      </span>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     {LEVELS.map((level) => (

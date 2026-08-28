@@ -5,6 +5,7 @@ export interface Food {
   category: FoodCategory[];
   firstEatenDate?: string;
   preference?: FoodPreference;
+  isTried: boolean;
   createdAt: string;
 }
 
@@ -37,3 +38,15 @@ export interface MealRecordItem {
 
 export type CompletionLevel = "full" | "half" | "none";
 export type Recorder = "father" | "mother";
+
+export interface SymptomRecord {
+  id?: number;
+  mealRecordId: number;
+  foodName?: string;
+  symptom: string;
+  severity: SymptomSeverity;
+  observedAt: string;
+  createdAt: string;
+}
+
+export type SymptomSeverity = "mild" | "moderate" | "severe";

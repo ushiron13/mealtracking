@@ -2,16 +2,21 @@ import { useState } from 'react'
 import RecordListScreen from './screens/RecordListScreen'
 import RecordInputScreen from './screens/RecordInputScreen'
 import FoodListScreen from './screens/FoodListScreen'
+import SymptomRecordScreen from './screens/SymptomRecordScreen'
+import FirstTryListScreen from './screens/FirstTryListScreen'
 import { RecorderContext } from './RecorderContext'
 import { RECORDER_LABEL } from './labels'
 import type { Recorder } from './types'
 
-type Screen = 'list' | 'input' | 'foodList'
+type Screen = 'list' | 'input' | 'foodList' | 'symptomRecord' | 'firstTryList'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('list')
   const [recorder, setRecorder] = useState<Recorder>('mother')
   const [editingRecordId, setEditingRecordId] = useState<number | undefined>(
+    undefined,
+  )
+  const [symptomRecordId, setSymptomRecordId] = useState<number | undefined>(
     undefined,
   )
 
@@ -34,7 +39,21 @@ function App() {
     setScreen('foodList')
   }
 
+  function goToFirstTryList() {
+    setScreen('firstTryList')
+  }
+
   function goToList() {
+    setScreen('list')
+  }
+
+  function goToSymptomRecord(recordId: number) {
+    setSymptomRecordId(recordId)
+    setScreen('symptomRecord')
+  }
+
+  function handleSymptomRecordDone() {
+    setSymptomRecordId(undefined)
     setScreen('list')
   }
 
@@ -68,9 +87,19 @@ function App() {
               onNavigateToInput={goToCreate}
               onEditRecord={goToEdit}
               onNavigateToFoodList={goToFoodList}
+              onNavigateToFirstTryList={goToFirstTryList}
+              onRecordSymptom={goToSymptomRecord}
             />
           ) : screen === 'input' ? (
             <RecordInputScreen recordId={editingRecordId} onSaved={handleSaved} />
+          ) : screen === 'symptomRecord' && symptomRecordId !== undefined ? (
+            <SymptomRecordScreen
+              recordId={symptomRecordId}
+              onSaved={handleSymptomRecordDone}
+              onCancel={handleSymptomRecordDone}
+            />
+          ) : screen === 'firstTryList' ? (
+            <FirstTryListScreen onBack={goToList} />
           ) : (
             <FoodListScreen onBack={goToList} />
           )}
