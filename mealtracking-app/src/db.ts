@@ -111,6 +111,50 @@ export class MealTrackingDB extends Dexie {
       menuPlans: "++id, date, mealTiming",
       menuLogs: "++id, date, mealTiming",
     });
+    this.version(5)
+      .stores({
+        foods: "++id, name, isFavorite, *category, isTried",
+        records: "++id, recordedAt, recordedBy",
+        symptomRecords: "++id, mealRecordId, observedAt, severity",
+        menuPlans: "++id, date, mealTiming",
+        menuLogs: "++id, date, mealTiming",
+      })
+      .upgrade(async (tx) => {
+        // カテゴリ導入（version 2）前に登録された食材はcategory: []のまま残っており、
+        // カテゴリ絞り込みで常に非表示になっていた。初期食材リストと同名なら正しいカテゴリを補完する
+        const categoryByName = new Map(
+          initialFoods.map((food) => [food.name, food.category]),
+        );
+        await tx
+          .table("foods")
+          .toCollection()
+          .modify((food: Food) => {
+            const category = categoryByName.get(food.name);
+            if (category && food.category.length === 0) {
+              food.category = category;
+            }
+          });
+
+        // 初期食材リストが27種類に拡充された後も、すでにfoodsが空でなかった既存ユーザーには
+        // seedInitialFoods（空のときのみ実行）が反映されなかったため、未登録分をここで補う
+        const existingFoods: Food[] = await tx.table("foods").toCollection().toArray();
+        const existingNames = new Set(existingFoods.map((food) => food.name));
+        const missingFoods = initialFoods.filter(
+          (food) => !existingNames.has(food.name),
+        );
+        if (missingFoods.length > 0) {
+          const now = new Date().toISOString();
+          await tx.table("foods").bulkAdd(
+            missingFoods.map(({ name, category }) => ({
+              name,
+              isFavorite: true,
+              category,
+              isTried: false,
+              createdAt: now,
+            })),
+          );
+        }
+      });
   }
 }
 
