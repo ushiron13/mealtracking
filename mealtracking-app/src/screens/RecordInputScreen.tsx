@@ -14,9 +14,10 @@ const LEVELS: CompletionLevel[] = ["full", "half", "none"];
 interface RecordInputScreenProps {
   recordId?: number;
   onSaved: () => void;
+  onCancel: () => void;
 }
 
-function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
+function RecordInputScreen({ recordId, onSaved, onCancel }: RecordInputScreenProps) {
   const isEditMode = recordId !== undefined;
   const { recorder } = useRecorder();
 
@@ -230,13 +231,22 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
   return (
     <div className="px-4 py-6 sm:px-8">
       <div className="mx-auto w-full max-w-2xl space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-bold text-orange-900 sm:text-3xl">
-            {isEditMode ? "記録を編集" : "記録する"}
-          </h1>
-          <p className="text-sm text-orange-700 sm:text-base">
-            食材を選んで、完食度を記録しましょう
-          </p>
+        <header className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold text-orange-900 sm:text-3xl">
+              {isEditMode ? "記録を編集" : "記録する"}
+            </h1>
+            <p className="text-sm text-orange-700 sm:text-base">
+              食材を選んで、完食度を記録しましょう
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-11 shrink-0 rounded-xl border-2 border-gray-200 bg-white px-5 text-base font-medium text-gray-700 transition active:scale-95"
+          >
+            キャンセル
+          </button>
         </header>
 
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">

@@ -103,7 +103,11 @@ function App() {
               onRecordSymptom={goToSymptomRecord}
             />
           ) : screen === 'input' ? (
-            <RecordInputScreen recordId={editingRecordId} onSaved={handleSaved} />
+            <RecordInputScreen
+              recordId={editingRecordId}
+              onSaved={handleSaved}
+              onCancel={handleSaved}
+            />
           ) : screen === 'symptomRecord' && symptomRecordId !== undefined ? (
             <SymptomRecordScreen
               recordId={symptomRecordId}
