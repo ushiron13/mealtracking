@@ -50,3 +50,23 @@ export interface SymptomRecord {
 }
 
 export type SymptomSeverity = "mild" | "moderate" | "severe";
+
+export interface MenuPlan {
+  id?: number;
+  date: string;
+  mealTiming: MealTiming;
+  menuName: string;
+  updatedAt: string;
+}
+
+export interface MenuLog {
+  id?: number;
+  date: string;
+  mealTiming: MealTiming;
+  menuName: string;
+  comment?: string;
+  recordedBy: Recorder;
+  createdAt: string;
+}
+
+export type MealTiming = "breakfast" | "lunch" | "dinner" | "snack";

@@ -2,6 +2,7 @@ import type {
   CompletionLevel,
   FoodCategory,
   FoodPreference,
+  MealTiming,
   Recorder,
   SymptomSeverity,
 } from "./types";
@@ -76,4 +77,18 @@ export const SYMPTOM_SEVERITIES: SymptomSeverity[] = [
   "mild",
   "moderate",
   "severe",
+];
+
+export const MEAL_TIMING_LABEL: Record<MealTiming, string> = {
+  breakfast: "朝食",
+  lunch: "昼食",
+  dinner: "夕食",
+  snack: "間食",
+};
+
+export const MEAL_TIMINGS: MealTiming[] = [
+  "breakfast",
+  "lunch",
+  "dinner",
+  "snack",
 ];

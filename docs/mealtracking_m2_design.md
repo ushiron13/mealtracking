@@ -235,6 +235,7 @@ async function updatePlan(date: string, mealTiming: MealTiming, menuName: string
 ```
 
 - `MenuPlan`は状態なので、既存があれば上書き（履歴は残さない、UC6の運用方針通り）
+- **実装時の追加**：`menuName`を空欄で保存した場合は「予定なし」状態（2.2）に戻すため、既存の`MenuPlan`を削除する（空文字のレコードを残さない）
 
 ### 2.8 週間献立表画面（③）での突き合わせ表示
 
@@ -248,6 +249,7 @@ async function getWeekCell(date: string, mealTiming: MealTiming) {
 
 - セル表示は「予定（`plan`、あれば）」と「実施記録（`logs`、0件〜複数件）」を両方表示する
 - 実施記録が1件でもあれば実施済みとして表示し、予定と異なる内容であれば両方を並べて見せる（UC5の「一目で分かる」という要件を、上書きなしで実現する）
+- **実装時の補足**：③の画面仕様（3章）にある「完食度アイコン」表示のため、同じ`date`＋`mealTiming`を持つ`MealRecord`（`recordedAt`から`toDateKey`/`inferMealTiming`で算出）も緩く突き合わせ、該当する`items`の完食度を集約して表示する。UC7の保存処理（2.6）は`MenuLog`と`MealRecord`を同じ`now`から同時に作成するため、この2テーブルの`date`＋`mealTiming`は常に一致する
 
 ---
 
