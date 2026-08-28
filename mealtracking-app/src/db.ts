@@ -182,3 +182,30 @@ export async function addMenuLogIfNamed(
     createdAt: now.toISOString(),
   });
 }
+
+/**
+ * MenuPlanは「予定・状態」なので上書き保存する（date+mealTimingにつき常に最新1件）。
+ * 空欄で保存した場合は「予定なし」状態に戻すため、既存のPlanを削除する。
+ */
+export async function upsertMenuPlan(
+  date: string,
+  mealTiming: MealTiming,
+  menuName: string,
+): Promise<void> {
+  const trimmed = menuName.trim();
+  const existing = await db.menuPlans.where({ date, mealTiming }).first();
+
+  if (!trimmed) {
+    if (existing?.id !== undefined) {
+      await db.menuPlans.delete(existing.id);
+    }
+    return;
+  }
+
+  const updatedAt = new Date().toISOString();
+  if (existing?.id !== undefined) {
+    await db.menuPlans.update(existing.id, { menuName: trimmed, updatedAt });
+  } else {
+    await db.menuPlans.add({ date, mealTiming, menuName: trimmed, updatedAt });
+  }
+}

@@ -8,6 +8,7 @@ interface RecordListScreenProps {
   onEditRecord: (recordId: number) => void;
   onNavigateToFoodList: () => void;
   onNavigateToFirstTryList: () => void;
+  onNavigateToWeeklyMenu: () => void;
   onRecordSymptom: (recordId: number) => void;
 }
 
@@ -16,6 +17,7 @@ function RecordListScreen({
   onEditRecord,
   onNavigateToFoodList,
   onNavigateToFirstTryList,
+  onNavigateToWeeklyMenu,
   onRecordSymptom,
 }: RecordListScreenProps) {
   const [records, setRecords] = useState<MealRecord[]>([]);
@@ -65,6 +67,13 @@ function RecordListScreen({
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onNavigateToWeeklyMenu}
+              className="min-h-11 rounded-xl border-2 border-orange-500 bg-white px-5 text-base font-medium text-orange-600 transition active:scale-95"
+            >
+              週間献立表
+            </button>
             <button
               type="button"
               onClick={onNavigateToFirstTryList}
