@@ -7,23 +7,34 @@ interface RecordListScreenProps {
   onNavigateToInput: () => void;
   onEditRecord: (recordId: number) => void;
   onNavigateToFoodList: () => void;
+  onRecordSymptom: (recordId: number) => void;
 }
 
 function RecordListScreen({
   onNavigateToInput,
   onEditRecord,
   onNavigateToFoodList,
+  onRecordSymptom,
 }: RecordListScreenProps) {
   const [records, setRecords] = useState<MealRecord[]>([]);
+  const [recordIdsWithSymptom, setRecordIdsWithSymptom] = useState<
+    Set<number>
+  >(new Set());
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const allRecords = await db.records.orderBy("recordedAt").reverse().toArray();
+      const [allRecords, allSymptomRecords] = await Promise.all([
+        db.records.orderBy("recordedAt").reverse().toArray(),
+        db.symptomRecords.toArray(),
+      ]);
       if (cancelled) return;
       setRecords(allRecords);
+      setRecordIdsWithSymptom(
+        new Set(allSymptomRecords.map((s) => s.mealRecordId)),
+      );
       setIsLoading(false);
     }
 
@@ -83,8 +94,14 @@ function RecordListScreen({
               <RecordCard
                 key={record.id}
                 record={record}
+                hasSymptomRecord={
+                  record.id !== undefined && recordIdsWithSymptom.has(record.id)
+                }
                 onEdit={() => record.id !== undefined && onEditRecord(record.id)}
                 onDelete={() => record.id !== undefined && handleDelete(record.id)}
+                onRecordSymptom={() =>
+                  record.id !== undefined && onRecordSymptom(record.id)
+                }
               />
             ))}
           </div>

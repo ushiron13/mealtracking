@@ -4,8 +4,10 @@ import { formatTime } from "../format";
 
 interface RecordCardProps {
   record: MealRecord;
+  hasSymptomRecord: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onRecordSymptom: () => void;
 }
 
 const LEVEL_PILL_STYLE: Record<CompletionLevel, string> = {
@@ -14,12 +16,23 @@ const LEVEL_PILL_STYLE: Record<CompletionLevel, string> = {
   none: "bg-gray-100 text-gray-600",
 };
 
-function RecordCard({ record, onEdit, onDelete }: RecordCardProps) {
+function RecordCard({
+  record,
+  hasSymptomRecord,
+  onEdit,
+  onDelete,
+  onRecordSymptom,
+}: RecordCardProps) {
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-lg font-semibold text-gray-900">
+        <span className="flex items-center gap-1.5 text-lg font-semibold text-gray-900">
           {formatTime(record.recordedAt)}
+          {hasSymptomRecord && (
+            <span title="症状の記録があります" aria-label="症状の記録があります">
+              ⚠️
+            </span>
+          )}
         </span>
         <span className="rounded-full bg-orange-100 px-3 py-1 text-sm font-medium text-orange-700">
           記録者：{RECORDER_LABEL[record.recordedBy]}
@@ -43,6 +56,13 @@ function RecordCard({ record, onEdit, onDelete }: RecordCardProps) {
           className="min-h-11 flex-1 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium text-gray-700 transition active:scale-95"
         >
           編集
+        </button>
+        <button
+          type="button"
+          onClick={onRecordSymptom}
+          className="min-h-11 flex-1 rounded-xl border-2 border-amber-300 bg-white text-sm font-medium text-amber-700 transition active:scale-95"
+        >
+          症状を記録
         </button>
         <button
           type="button"
