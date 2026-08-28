@@ -3,10 +3,12 @@ import type {
   Food,
   FoodCategory,
   MealRecord,
+  MealTiming,
   MenuLog,
   MenuPlan,
   SymptomRecord,
 } from "./types";
+import { toDateKey } from "./format";
 
 // 月齢別の離乳食解禁食材リストをベースにした仮リスト（大蒲さんの確認・取捨選択待ち）。
 // カテゴリも仮割り当て（特にひじき＝海藻は専用カテゴリがないため「その他」とした）。
@@ -150,4 +152,33 @@ export async function updateFood(
 
 export async function deleteFood(id: number): Promise<void> {
   await db.foods.delete(id);
+}
+
+/** 5-10時→朝食, 10-15時→昼食, 15-19時→夕食, それ以外→間食 */
+export function inferMealTiming(date: Date): MealTiming {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 10) return "breakfast";
+  if (hour >= 10 && hour < 15) return "lunch";
+  if (hour >= 15 && hour < 19) return "dinner";
+  return "snack";
+}
+
+export async function addMenuLogIfNamed(
+  menuName: string,
+  comment: string,
+  recordedBy: MenuLog["recordedBy"],
+  now: Date,
+): Promise<void> {
+  const trimmedMenuName = menuName.trim();
+  if (!trimmedMenuName) return;
+
+  const trimmedComment = comment.trim();
+  await db.menuLogs.add({
+    date: toDateKey(now),
+    mealTiming: inferMealTiming(now),
+    menuName: trimmedMenuName,
+    comment: trimmedComment || undefined,
+    recordedBy,
+    createdAt: now.toISOString(),
+  });
 }

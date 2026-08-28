@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { db, updateRecord } from "../db";
+import { addMenuLogIfNamed, db, updateRecord } from "../db";
 import type { CompletionLevel, Food, MealRecordItem } from "../types";
 import { useRecorder } from "../RecorderContext";
 import { formatTime, withTime } from "../format";
@@ -27,6 +27,8 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
   const [levels, setLevels] = useState<Partial<Record<number, CompletionLevel>>>(
     {},
   );
+  const [menuName, setMenuName] = useState("");
+  const [menuComment, setMenuComment] = useState("");
   const [newFoodName, setNewFoodName] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [originalRecordedAt, setOriginalRecordedAt] = useState<string | null>(
@@ -186,9 +188,10 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
     });
 
     const hasManualTime = isTimeManuallyEdited && TIME_PATTERN.test(timeInputValue);
+    const now = new Date();
 
     if (isEditMode) {
-      const baseRecordedAt = originalRecordedAt ?? new Date().toISOString();
+      const baseRecordedAt = originalRecordedAt ?? now.toISOString();
       await updateRecord(recordId as number, {
         recordedAt: hasManualTime
           ? withTime(baseRecordedAt, timeInputValue)
@@ -197,18 +200,21 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
         items,
       });
     } else {
-      const now = new Date().toISOString();
+      const nowIso = now.toISOString();
       await db.records.add({
-        recordedAt: hasManualTime ? withTime(now, timeInputValue) : now,
+        recordedAt: hasManualTime ? withTime(nowIso, timeInputValue) : nowIso,
         recordedBy: recorder,
         items,
       });
     }
 
     await markFoodsAsTried(selectedFoodIds);
+    await addMenuLogIfNamed(menuName, menuComment, recorder, now);
 
     setSelectedFoodIds([]);
     setLevels({});
+    setMenuName("");
+    setMenuComment("");
     onSaved();
   }
 
@@ -247,6 +253,41 @@ function RecordInputScreen({ recordId, onSaved }: RecordInputScreenProps) {
             onChange={(e) => handleTimeChange(e.target.value)}
             className="min-h-11 w-full max-w-[12rem] rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-base font-medium text-gray-800 focus:border-orange-500 focus:outline-none"
           />
+        </section>
+
+        <section className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
+          <div>
+            <label
+              htmlFor="menu-name"
+              className="mb-2 block text-sm font-semibold text-gray-500"
+            >
+              献立名（任意）
+            </label>
+            <input
+              id="menu-name"
+              type="text"
+              value={menuName}
+              onChange={(e) => setMenuName(e.target.value)}
+              placeholder="例：鶏と根菜の煮物、にんじん、じゃがいも"
+              className="min-h-11 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-base text-gray-800 focus:border-orange-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="menu-comment"
+              className="mb-2 block text-sm font-semibold text-gray-500"
+            >
+              感想（任意）
+            </label>
+            <input
+              id="menu-comment"
+              type="text"
+              value={menuComment}
+              onChange={(e) => setMenuComment(e.target.value)}
+              placeholder="例：よく食べた、薄味にした"
+              className="min-h-11 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-base text-gray-800 focus:border-orange-500 focus:outline-none"
+            />
+          </div>
         </section>
 
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-orange-100">
