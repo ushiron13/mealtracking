@@ -5,6 +5,14 @@ export function formatTime(iso: string): string {
   return `${hh}:${mm}`;
 }
 
+export function formatDate(iso: string): string {
+  const date = new Date(iso);
+  const yyyy = date.getFullYear();
+  const mm = (date.getMonth() + 1).toString().padStart(2, "0");
+  const dd = date.getDate().toString().padStart(2, "0");
+  return `${yyyy}/${mm}/${dd}`;
+}
+
 /** Combines the calendar day of `baseIso` with a "HH:mm" time-of-day, keeping the date fixed. */
 export function withTime(baseIso: string, timeValue: string): string {
   const date = new Date(baseIso);

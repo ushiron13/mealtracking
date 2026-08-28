@@ -105,7 +105,7 @@ this.version(3).stores({
 |---|---|
 | ①記録一覧（症状追記導線） | 対象の`MealRecord.id`を保持したまま⑥症状記録画面に遷移 |
 | ⑥症状記録画面 | 対象`MealRecord.items`から食材選択肢を表示。保存時は`db.symptomRecords.add({...})` |
-| ⑦初回食材の履歴一覧 | `db.foods.where('isTried').equals(true)`で取得し、`createdAt`または初回記録時刻順に表示。該当する`symptomRecords`を`mealRecordId`経由で突き合わせて併記 |
+| ⑦初回食材の履歴一覧 | `db.foods.toArray()`で全件取得し、`isTried === true`でインメモリ絞り込み。各食材が含まれる`MealRecord`のうち最も早い`recordedAt`を「はじめて食べた日時」として算出し、その日時順に表示。該当する`symptomRecords`を`mealRecordId`経由で突き合わせて併記（**実装時の訂正**：`isTried`はboolean値のためIndexedDBの索引キーとして使用できず、`where('isTried').equals(true)`は常に0件になる。索引は残すが、絞り込みは必ずインメモリで行う） |
 
 ### 1.6 「はじめて」判定ロジックの置き換え
 

@@ -3,11 +3,12 @@ import RecordListScreen from './screens/RecordListScreen'
 import RecordInputScreen from './screens/RecordInputScreen'
 import FoodListScreen from './screens/FoodListScreen'
 import SymptomRecordScreen from './screens/SymptomRecordScreen'
+import FirstTryListScreen from './screens/FirstTryListScreen'
 import { RecorderContext } from './RecorderContext'
 import { RECORDER_LABEL } from './labels'
 import type { Recorder } from './types'
 
-type Screen = 'list' | 'input' | 'foodList' | 'symptomRecord'
+type Screen = 'list' | 'input' | 'foodList' | 'symptomRecord' | 'firstTryList'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('list')
@@ -36,6 +37,10 @@ function App() {
 
   function goToFoodList() {
     setScreen('foodList')
+  }
+
+  function goToFirstTryList() {
+    setScreen('firstTryList')
   }
 
   function goToList() {
@@ -82,6 +87,7 @@ function App() {
               onNavigateToInput={goToCreate}
               onEditRecord={goToEdit}
               onNavigateToFoodList={goToFoodList}
+              onNavigateToFirstTryList={goToFirstTryList}
               onRecordSymptom={goToSymptomRecord}
             />
           ) : screen === 'input' ? (
@@ -92,6 +98,8 @@ function App() {
               onSaved={handleSymptomRecordDone}
               onCancel={handleSymptomRecordDone}
             />
+          ) : screen === 'firstTryList' ? (
+            <FirstTryListScreen onBack={goToList} />
           ) : (
             <FoodListScreen onBack={goToList} />
           )}
