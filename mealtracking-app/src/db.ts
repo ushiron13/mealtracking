@@ -1,5 +1,12 @@
 import Dexie, { type Table } from "dexie";
-import type { Food, FoodCategory, MealRecord, SymptomRecord } from "./types";
+import type {
+  Food,
+  FoodCategory,
+  MealRecord,
+  MenuLog,
+  MenuPlan,
+  SymptomRecord,
+} from "./types";
 
 // 月齢別の離乳食解禁食材リストをベースにした仮リスト（大蒲さんの確認・取捨選択待ち）。
 // カテゴリも仮割り当て（特にひじき＝海藻は専用カテゴリがないため「その他」とした）。
@@ -40,6 +47,8 @@ export class MealTrackingDB extends Dexie {
   foods!: Table<Food, number>;
   records!: Table<MealRecord, number>;
   symptomRecords!: Table<SymptomRecord, number>;
+  menuPlans!: Table<MenuPlan, number>;
+  menuLogs!: Table<MenuLog, number>;
 
   constructor() {
     super("MealTrackingDB");
@@ -93,6 +102,13 @@ export class MealTrackingDB extends Dexie {
             .modify({ isTried: true });
         }
       });
+    this.version(4).stores({
+      foods: "++id, name, isFavorite, *category, isTried",
+      records: "++id, recordedAt, recordedBy",
+      symptomRecords: "++id, mealRecordId, observedAt, severity",
+      menuPlans: "++id, date, mealTiming",
+      menuLogs: "++id, date, mealTiming",
+    });
   }
 }
 
