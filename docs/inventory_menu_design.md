@@ -218,7 +218,7 @@ function parsePiyologText(text: string): { date: string; foodMentions: string[] 
 詳細なステップ分割は `inventory_menu_claude_code_instructions.md` を参照。
 
 - [x] `Food`（新定義）・`Inventory`・`InventoryEvent`テーブルの実装
-- [ ] ①在庫一覧画面の実装
+- [x] ①在庫一覧画面の実装
 - [ ] ②献立提案画面の実装（提案ロジックの骨格実装、メニュー生成方式は別途検討）
 - [ ] ③週間献立表とUC5の接続（提案採用時の`MenuLog`反映）
 - [ ] ④ぴよログ連携画面の実装（パース処理は実データサンプルを見て精緻化）
@@ -244,3 +244,7 @@ function parsePiyologText(text: string): { date: string; foodMentions: string[] 
 ### 4.4 `recordedBy`
 
 2.8節の`adoptMenu`関数は`recordedBy`をコメントで「実際の記録者に置き換える」としているが、本リポジトリには既に`RecorderContext`（`useRecorder()`）による父/母のワンタップ切替が実装済みのため、そのまま利用する。
+
+### 4.5 初期食材マスタのシード処理（並行実行対策）
+
+`seedInitialFoodsIfEmpty`（foodsが空なら初期30品目を投入する処理）は、React `StrictMode`下でのマウント時の実際の動作検証で、`count()`確認と`bulkAdd`の間に競合が起き、同じ食材が二重に登録される不具合が判明した（開発時の二重effect呼び出しに限らず、同一タブで並行して呼び出された場合に一般的に起こりうる）。Dexieの`db.transaction("rw", db.foods, ...)`で件数確認と追加を1トランザクションにまとめ、二重シードを防ぐよう修正した。

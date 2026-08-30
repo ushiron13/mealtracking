@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import RecordInputScreen from './screens/RecordInputScreen'
 import WeeklyMenuScreen from './screens/WeeklyMenuScreen'
+import InventoryListScreen from './screens/InventoryListScreen'
 import { seedInitialFoodsIfEmpty } from './db'
 import { RecorderContext } from './RecorderContext'
 import { RECORDER_LABEL } from './labels'
 import type { Recorder } from './types'
 
-type Screen = 'weeklyMenu' | 'input'
+type Screen = 'weeklyMenu' | 'input' | 'inventory'
+
+const NAV_TABS: { screen: Screen; label: string }[] = [
+  { screen: 'weeklyMenu', label: '週間献立表' },
+  { screen: 'inventory', label: '在庫一覧' },
+]
 
 function App() {
   const [screen, setScreen] = useState<Screen>('weeklyMenu')
@@ -27,33 +33,52 @@ function App() {
   return (
     <RecorderContext.Provider value={{ recorder, setRecorder }}>
       <div className="flex min-h-svh flex-col bg-orange-50">
-        <header className="flex items-center justify-between gap-4 border-b border-orange-100 bg-white px-4 py-3 sm:px-8">
-          <span className="text-sm font-semibold text-gray-500">記録者</span>
-          <div className="flex gap-2">
-            {(Object.keys(RECORDER_LABEL) as Recorder[]).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRecorder(r)}
-                aria-pressed={recorder === r}
-                className={`min-h-11 min-w-11 rounded-xl border-2 px-4 py-2 text-sm font-medium transition active:scale-95 ${
-                  recorder === r
-                    ? 'border-orange-500 bg-orange-500 text-white'
-                    : 'border-gray-200 bg-white text-gray-700'
-                }`}
-              >
-                {RECORDER_LABEL[r]}
-              </button>
-            ))}
+        <header className="flex flex-col gap-3 border-b border-orange-100 bg-white px-4 py-3 sm:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <nav className="flex gap-2">
+              {NAV_TABS.map((tab) => (
+                <button
+                  key={tab.screen}
+                  type="button"
+                  onClick={() => setScreen(tab.screen)}
+                  aria-pressed={screen === tab.screen}
+                  className={`min-h-11 rounded-xl border-2 px-4 text-sm font-medium transition active:scale-95 ${
+                    screen === tab.screen
+                      ? 'border-orange-500 bg-orange-500 text-white'
+                      : 'border-gray-200 bg-white text-gray-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-500">記録者</span>
+              {(Object.keys(RECORDER_LABEL) as Recorder[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRecorder(r)}
+                  aria-pressed={recorder === r}
+                  className={`min-h-11 min-w-11 rounded-xl border-2 px-4 py-2 text-sm font-medium transition active:scale-95 ${
+                    recorder === r
+                      ? 'border-orange-500 bg-orange-500 text-white'
+                      : 'border-gray-200 bg-white text-gray-700'
+                  }`}
+                >
+                  {RECORDER_LABEL[r]}
+                </button>
+              ))}
+            </div>
           </div>
         </header>
 
         <div className="flex-1">
-          {screen === 'input' ? (
+          {screen === 'input' && (
             <RecordInputScreen onSaved={goToWeeklyMenu} onCancel={goToWeeklyMenu} />
-          ) : (
-            <WeeklyMenuScreen onNavigateToInput={goToInput} />
           )}
+          {screen === 'weeklyMenu' && <WeeklyMenuScreen onNavigateToInput={goToInput} />}
+          {screen === 'inventory' && <InventoryListScreen />}
         </div>
       </div>
     </RecorderContext.Provider>

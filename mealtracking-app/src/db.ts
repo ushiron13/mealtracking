@@ -138,15 +138,21 @@ const INITIAL_FOODS: Array<Pick<Food, "name" | "category" | "managementType">> =
   { name: "だし", category: ["other"], managementType: "level" },
 ];
 
-/** 初回起動時、foodsテーブルが空であれば初期食材マスタをシードする。 */
+/**
+ * 初回起動時、foodsテーブルが空であれば初期食材マスタをシードする。
+ * トランザクション内で件数確認と追加を行い、React StrictMode等による
+ * 同時呼び出しで二重シードされないようにする。
+ */
 export async function seedInitialFoodsIfEmpty(): Promise<void> {
-  const count = await db.foods.count();
-  if (count > 0) return;
+  await db.transaction("rw", db.foods, async () => {
+    const count = await db.foods.count();
+    if (count > 0) return;
 
-  const now = new Date().toISOString();
-  await db.foods.bulkAdd(
-    INITIAL_FOODS.map((food) => ({ ...food, createdAt: now })),
-  );
+    const now = new Date().toISOString();
+    await db.foods.bulkAdd(
+      INITIAL_FOODS.map((food) => ({ ...food, createdAt: now })),
+    );
+  });
 }
 
 /** 5-10時→朝食, 10-15時→昼食, 15-19時→夕食, それ以外→間食 */
