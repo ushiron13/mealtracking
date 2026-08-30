@@ -342,3 +342,30 @@ export async function suggestMenus(): Promise<MenuSuggestion> {
 
   return { mainCandidates, sideCandidates, recentMenuNames };
 }
+
+/**
+ * UC5（提案の採用）：使用した食材を消費記録として反映し、週間献立表（MenuLog）に実施記録を追加する。
+ * mealTiming/dateは呼び出し時点でinferMealTiming/toDateKeyから導出する想定。
+ */
+export async function adoptMenu(
+  menuName: string,
+  usedFoodIds: number[],
+  date: string,
+  mealTiming: MealTiming,
+  recordedBy: MenuLog["recordedBy"],
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  for (const foodId of usedFoodIds) {
+    const food = await db.foods.get(foodId);
+    if (food) await consumeInventory(foodId, food.managementType);
+  }
+
+  await db.menuLogs.add({
+    date,
+    mealTiming,
+    menuName,
+    recordedBy,
+    createdAt: now,
+  });
+}

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { suggestMenus, type MenuSuggestion } from "../db";
+import { adoptMenu, inferMealTiming, suggestMenus, type MenuSuggestion } from "../db";
+import { toDateKey } from "../format";
+import { useRecorder } from "../RecorderContext";
 import type { Food } from "../types";
 
 interface MenuSuggestionScreenProps {
-  onAdopt?: () => void;
+  onAdopted?: () => void;
 }
 
 function FoodChip({ food }: { food: Food }) {
@@ -14,9 +16,11 @@ function FoodChip({ food }: { food: Food }) {
   );
 }
 
-function MenuSuggestionScreen({ onAdopt }: MenuSuggestionScreenProps) {
+function MenuSuggestionScreen({ onAdopted }: MenuSuggestionScreenProps) {
+  const { recorder } = useRecorder();
   const [suggestion, setSuggestion] = useState<MenuSuggestion | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdopting, setIsAdopting] = useState(false);
 
   async function loadSuggestion() {
     setIsLoading(true);
@@ -39,6 +43,14 @@ function MenuSuggestionScreen({ onAdopt }: MenuSuggestionScreenProps) {
   const hasCandidates =
     (suggestion?.mainCandidates.length ?? 0) > 0 ||
     (suggestion?.sideCandidates.length ?? 0) > 0;
+
+  async function handleAdopt(menuName: string, usedFoodIds: number[]) {
+    const now = new Date();
+    await adoptMenu(menuName, usedFoodIds, toDateKey(now), inferMealTiming(now), recorder);
+    setIsAdopting(false);
+    await loadSuggestion();
+    onAdopted?.();
+  }
 
   return (
     <div className="px-4 py-6 sm:px-8">
@@ -108,11 +120,107 @@ function MenuSuggestionScreen({ onAdopt }: MenuSuggestionScreenProps) {
 
         <button
           type="button"
-          onClick={() => onAdopt?.()}
-          className="min-h-11 w-full rounded-xl bg-orange-500 px-4 py-3 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600"
+          onClick={() => setIsAdopting(true)}
+          disabled={!hasCandidates}
+          className="min-h-11 w-full rounded-xl bg-orange-500 px-4 py-3 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600 disabled:opacity-40"
         >
           これ作る
         </button>
+      </div>
+
+      {isAdopting && suggestion && (
+        <AdoptMenuModal
+          candidates={[...suggestion.mainCandidates, ...suggestion.sideCandidates]}
+          onCancel={() => setIsAdopting(false)}
+          onSave={handleAdopt}
+        />
+      )}
+    </div>
+  );
+}
+
+interface AdoptMenuModalProps {
+  candidates: Food[];
+  onCancel: () => void;
+  onSave: (menuName: string, usedFoodIds: number[]) => void;
+}
+
+function AdoptMenuModal({ candidates, onCancel, onSave }: AdoptMenuModalProps) {
+  const [menuName, setMenuName] = useState("");
+  const [usedFoodIds, setUsedFoodIds] = useState<number[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  function toggleFood(id: number) {
+    setUsedFoodIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function handleSubmit() {
+    if (!menuName.trim()) {
+      setError("献立名を入力してください");
+      return;
+    }
+    setError(null);
+    onSave(menuName.trim(), usedFoodIds);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+        <h2 className="mb-4 text-lg font-bold text-gray-900">これ作る</h2>
+
+        <label htmlFor="adopt-menu-name" className="mb-1 block text-sm font-semibold text-gray-500">
+          献立名
+        </label>
+        <input
+          id="adopt-menu-name"
+          type="text"
+          value={menuName}
+          onChange={(e) => setMenuName(e.target.value)}
+          placeholder="例：鶏肉とトマトの煮込み"
+          className="mb-4 min-h-11 w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 text-base text-gray-800 focus:border-orange-500 focus:outline-none"
+        />
+
+        <p className="mb-1 text-sm font-semibold text-gray-500">使用した食材（複数選択可）</p>
+        <div className="mb-6 flex flex-wrap gap-2">
+          {candidates.map((food) => (
+            <button
+              key={food.id}
+              type="button"
+              onClick={() => toggleFood(food.id!)}
+              aria-pressed={usedFoodIds.includes(food.id!)}
+              className={`min-h-11 rounded-xl border-2 px-3 text-sm font-medium transition active:scale-95 ${
+                usedFoodIds.includes(food.id!)
+                  ? "border-orange-500 bg-orange-500 text-white"
+                  : "border-gray-200 bg-white text-gray-700"
+              }`}
+            >
+              {food.name}
+            </button>
+          ))}
+        </div>
+
+        {error && (
+          <p role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-red-200">
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-11 flex-1 rounded-xl border-2 border-gray-200 bg-white text-base font-medium text-gray-700 transition active:scale-95"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            className="min-h-11 flex-1 rounded-xl bg-orange-500 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600"
+          >
+            保存する
+          </button>
+        </div>
       </div>
     </div>
   );

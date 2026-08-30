@@ -81,7 +81,7 @@ function App() {
           )}
           {screen === 'weeklyMenu' && <WeeklyMenuScreen onNavigateToInput={goToInput} />}
           {screen === 'inventory' && <InventoryListScreen />}
-          {screen === 'suggestion' && <MenuSuggestionScreen />}
+          {screen === 'suggestion' && <MenuSuggestionScreen onAdopted={goToWeeklyMenu} />}
         </div>
       </div>
     </RecorderContext.Provider>

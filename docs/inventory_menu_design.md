@@ -220,7 +220,7 @@ function parsePiyologText(text: string): { date: string; foodMentions: string[] 
 - [x] `Food`（新定義）・`Inventory`・`InventoryEvent`テーブルの実装
 - [x] ①在庫一覧画面の実装
 - [x] ②献立提案画面の実装（提案ロジックの骨格実装、メニュー生成方式は別途検討）
-- [ ] ③週間献立表とUC5の接続（提案採用時の`MenuLog`反映）
+- [x] ③週間献立表とUC5の接続（提案採用時の`MenuLog`反映）
 - [ ] ④ぴよログ連携画面の実装（パース処理は実データサンプルを見て精緻化）
 
 ---
