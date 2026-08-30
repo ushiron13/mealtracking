@@ -1,71 +1,22 @@
 import { useState } from 'react'
-import RecordListScreen from './screens/RecordListScreen'
 import RecordInputScreen from './screens/RecordInputScreen'
-import FoodListScreen from './screens/FoodListScreen'
-import SymptomRecordScreen from './screens/SymptomRecordScreen'
-import FirstTryListScreen from './screens/FirstTryListScreen'
 import WeeklyMenuScreen from './screens/WeeklyMenuScreen'
 import { RecorderContext } from './RecorderContext'
 import { RECORDER_LABEL } from './labels'
 import type { Recorder } from './types'
 
-type Screen =
-  | 'list'
-  | 'input'
-  | 'foodList'
-  | 'symptomRecord'
-  | 'firstTryList'
-  | 'weeklyMenu'
+type Screen = 'weeklyMenu' | 'input'
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('list')
+  const [screen, setScreen] = useState<Screen>('weeklyMenu')
   const [recorder, setRecorder] = useState<Recorder>('mother')
-  const [editingRecordId, setEditingRecordId] = useState<number | undefined>(
-    undefined,
-  )
-  const [symptomRecordId, setSymptomRecordId] = useState<number | undefined>(
-    undefined,
-  )
 
-  function goToCreate() {
-    setEditingRecordId(undefined)
+  function goToInput() {
     setScreen('input')
-  }
-
-  function goToEdit(recordId: number) {
-    setEditingRecordId(recordId)
-    setScreen('input')
-  }
-
-  function handleSaved() {
-    setEditingRecordId(undefined)
-    setScreen('list')
-  }
-
-  function goToFoodList() {
-    setScreen('foodList')
-  }
-
-  function goToFirstTryList() {
-    setScreen('firstTryList')
   }
 
   function goToWeeklyMenu() {
     setScreen('weeklyMenu')
-  }
-
-  function goToList() {
-    setScreen('list')
-  }
-
-  function goToSymptomRecord(recordId: number) {
-    setSymptomRecordId(recordId)
-    setScreen('symptomRecord')
-  }
-
-  function handleSymptomRecordDone() {
-    setSymptomRecordId(undefined)
-    setScreen('list')
   }
 
   return (
@@ -93,33 +44,10 @@ function App() {
         </header>
 
         <div className="flex-1">
-          {screen === 'list' ? (
-            <RecordListScreen
-              onNavigateToInput={goToCreate}
-              onEditRecord={goToEdit}
-              onNavigateToFoodList={goToFoodList}
-              onNavigateToFirstTryList={goToFirstTryList}
-              onNavigateToWeeklyMenu={goToWeeklyMenu}
-              onRecordSymptom={goToSymptomRecord}
-            />
-          ) : screen === 'input' ? (
-            <RecordInputScreen
-              recordId={editingRecordId}
-              onSaved={handleSaved}
-              onCancel={handleSaved}
-            />
-          ) : screen === 'symptomRecord' && symptomRecordId !== undefined ? (
-            <SymptomRecordScreen
-              recordId={symptomRecordId}
-              onSaved={handleSymptomRecordDone}
-              onCancel={handleSymptomRecordDone}
-            />
-          ) : screen === 'firstTryList' ? (
-            <FirstTryListScreen onBack={goToList} />
-          ) : screen === 'weeklyMenu' ? (
-            <WeeklyMenuScreen onBack={goToList} />
+          {screen === 'input' ? (
+            <RecordInputScreen onSaved={goToWeeklyMenu} onCancel={goToWeeklyMenu} />
           ) : (
-            <FoodListScreen onBack={goToList} />
+            <WeeklyMenuScreen onNavigateToInput={goToInput} />
           )}
         </div>
       </div>

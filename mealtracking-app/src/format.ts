@@ -1,26 +1,3 @@
-export function formatTime(iso: string): string {
-  const date = new Date(iso);
-  const hh = date.getHours().toString().padStart(2, "0");
-  const mm = date.getMinutes().toString().padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-export function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const yyyy = date.getFullYear();
-  const mm = (date.getMonth() + 1).toString().padStart(2, "0");
-  const dd = date.getDate().toString().padStart(2, "0");
-  return `${yyyy}/${mm}/${dd}`;
-}
-
-/** Combines the calendar day of `baseIso` with a "HH:mm" time-of-day, keeping the date fixed. */
-export function withTime(baseIso: string, timeValue: string): string {
-  const date = new Date(baseIso);
-  const [hours, minutes] = timeValue.split(":").map(Number);
-  date.setHours(hours, minutes, 0, 0);
-  return date.toISOString();
-}
-
 /** Local calendar date as "YYYY-MM-DD" (avoids UTC day-boundary drift from toISOString). */
 export function toDateKey(date: Date): string {
   const yyyy = date.getFullYear();

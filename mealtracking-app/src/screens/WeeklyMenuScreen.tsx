@@ -1,21 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { db, upsertMenuPlan, inferMealTiming } from "../db";
-import type { CompletionLevel, MealTiming, MenuLog, MenuPlan } from "../types";
-import { COMPLETION_LEVEL_META, MEAL_TIMINGS, MEAL_TIMING_LABEL } from "../labels";
+import { db, upsertMenuPlan } from "../db";
+import type { MealTiming, MenuLog, MenuPlan } from "../types";
+import { MEAL_TIMINGS, MEAL_TIMING_LABEL } from "../labels";
 import { toDateKey } from "../format";
 
 interface WeeklyMenuScreenProps {
-  onBack: () => void;
+  onNavigateToInput: () => void;
 }
 
 interface CellData {
   plan?: MenuPlan;
   logs: MenuLog[];
-  levels: CompletionLevel[];
 }
 
 const WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
-const COMPLETION_LEVEL_ORDER: CompletionLevel[] = ["full", "half", "none"];
 
 function cellKey(date: string, mealTiming: MealTiming): string {
   return `${date}__${mealTiming}`;
@@ -36,13 +34,10 @@ function addDays(date: Date, days: number): Date {
   return result;
 }
 
-function WeeklyMenuScreen({ onBack }: WeeklyMenuScreenProps) {
+function WeeklyMenuScreen({ onNavigateToInput }: WeeklyMenuScreenProps) {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [plans, setPlans] = useState<MenuPlan[]>([]);
   const [logs, setLogs] = useState<MenuLog[]>([]);
-  const [levelsByKey, setLevelsByKey] = useState<Map<string, Set<CompletionLevel>>>(
-    new Map(),
-  );
   const [isLoading, setIsLoading] = useState(true);
 
   const [editingCell, setEditingCell] = useState<
@@ -51,23 +46,12 @@ function WeeklyMenuScreen({ onBack }: WeeklyMenuScreenProps) {
   const [editMenuName, setEditMenuName] = useState("");
 
   async function loadData() {
-    const [allPlans, allLogs, allRecords] = await Promise.all([
+    const [allPlans, allLogs] = await Promise.all([
       db.menuPlans.toArray(),
       db.menuLogs.toArray(),
-      db.records.toArray(),
     ]);
     setPlans(allPlans);
     setLogs(allLogs);
-
-    const map = new Map<string, Set<CompletionLevel>>();
-    for (const record of allRecords) {
-      const recordedDate = new Date(record.recordedAt);
-      const key = cellKey(toDateKey(recordedDate), inferMealTiming(recordedDate));
-      const levels = map.get(key) ?? new Set<CompletionLevel>();
-      for (const item of record.items) levels.add(item.level);
-      map.set(key, levels);
-    }
-    setLevelsByKey(map);
     setIsLoading(false);
   }
 
@@ -91,23 +75,18 @@ function WeeklyMenuScreen({ onBack }: WeeklyMenuScreenProps) {
     const map = new Map<string, CellData>();
     for (const plan of plans) {
       const key = cellKey(plan.date, plan.mealTiming);
-      const entry = map.get(key) ?? { logs: [], levels: [] };
+      const entry = map.get(key) ?? { logs: [] };
       entry.plan = plan;
       map.set(key, entry);
     }
     for (const log of logs) {
       const key = cellKey(log.date, log.mealTiming);
-      const entry = map.get(key) ?? { logs: [], levels: [] };
+      const entry = map.get(key) ?? { logs: [] };
       entry.logs.push(log);
       map.set(key, entry);
     }
-    for (const [key, levelSet] of levelsByKey) {
-      const entry = map.get(key) ?? { logs: [], levels: [] };
-      entry.levels = COMPLETION_LEVEL_ORDER.filter((level) => levelSet.has(level));
-      map.set(key, entry);
-    }
     return map;
-  }, [plans, logs, levelsByKey]);
+  }, [plans, logs]);
 
   function openEdit(date: string, mealTiming: MealTiming) {
     const existing = cellMap.get(cellKey(date, mealTiming))?.plan;
@@ -156,10 +135,10 @@ function WeeklyMenuScreen({ onBack }: WeeklyMenuScreenProps) {
           </div>
           <button
             type="button"
-            onClick={onBack}
-            className="min-h-11 shrink-0 rounded-xl border-2 border-orange-500 bg-white px-5 text-base font-medium text-orange-600 transition active:scale-95"
+            onClick={onNavigateToInput}
+            className="min-h-11 shrink-0 rounded-xl bg-orange-500 px-5 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600"
           >
-            ← 記録一覧へ戻る
+            ＋ 献立を記録する
           </button>
         </header>
 
@@ -253,13 +232,6 @@ function WeeklyMenuScreen({ onBack }: WeeklyMenuScreenProps) {
                                   )}
                                 </p>
                               ))}
-                              {cell?.levels && cell.levels.length > 0 && (
-                                <p className="text-xs">
-                                  {cell.levels
-                                    .map((level) => COMPLETION_LEVEL_META[level].icon)
-                                    .join(" ")}
-                                </p>
-                              )}
                               {!cell?.plan &&
                                 (!cell?.logs || cell.logs.length === 0) && (
                                   <p className="text-xs text-gray-300">−</p>
