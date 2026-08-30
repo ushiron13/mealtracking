@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import RecordInputScreen from './screens/RecordInputScreen'
 import WeeklyMenuScreen from './screens/WeeklyMenuScreen'
+import { seedInitialFoodsIfEmpty } from './db'
 import { RecorderContext } from './RecorderContext'
 import { RECORDER_LABEL } from './labels'
 import type { Recorder } from './types'
@@ -10,6 +11,10 @@ type Screen = 'weeklyMenu' | 'input'
 function App() {
   const [screen, setScreen] = useState<Screen>('weeklyMenu')
   const [recorder, setRecorder] = useState<Recorder>('mother')
+
+  useEffect(() => {
+    seedInitialFoodsIfEmpty()
+  }, [])
 
   function goToInput() {
     setScreen('input')

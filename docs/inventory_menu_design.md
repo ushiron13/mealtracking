@@ -217,7 +217,7 @@ function parsePiyologText(text: string): { date: string; foodMentions: string[] 
 
 詳細なステップ分割は `inventory_menu_claude_code_instructions.md` を参照。
 
-- [ ] `Food`（新定義）・`Inventory`・`InventoryEvent`テーブルの実装
+- [x] `Food`（新定義）・`Inventory`・`InventoryEvent`テーブルの実装
 - [ ] ①在庫一覧画面の実装
 - [ ] ②献立提案画面の実装（提案ロジックの骨格実装、メニュー生成方式は別途検討）
 - [ ] ③週間献立表とUC5の接続（提案採用時の`MenuLog`反映）

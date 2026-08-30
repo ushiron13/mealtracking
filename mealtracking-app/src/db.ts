@@ -1,10 +1,20 @@
 import Dexie, { type Table } from "dexie";
-import type { MealTiming, MenuLog, MenuPlan } from "./types";
+import type {
+  Food,
+  Inventory,
+  InventoryEvent,
+  MealTiming,
+  MenuLog,
+  MenuPlan,
+} from "./types";
 import { toDateKey } from "./format";
 
 export class MealTrackingDB extends Dexie {
   menuPlans!: Table<MenuPlan, number>;
   menuLogs!: Table<MenuLog, number>;
+  foods!: Table<Food, number>;
+  inventory!: Table<Inventory, number>;
+  inventoryEvents!: Table<InventoryEvent, number>;
 
   constructor() {
     super("MealTrackingDB");
@@ -81,10 +91,63 @@ export class MealTrackingDB extends Dexie {
       menuPlans: "++id, date, mealTiming",
       menuLogs: "++id, date, mealTiming",
     });
+    // v7: 食材在庫管理・大人用献立提案（新スコープ）に伴い、foodsを在庫管理用に作り直し、
+    // inventory/inventoryEventsを新設。menuPlans/menuLogsは変更なし（既存データを維持）。
+    this.version(7).stores({
+      foods: "++id, name, *category, managementType",
+      inventory: "++id, foodId",
+      inventoryEvents: "++id, foodId, eventType, createdAt",
+      menuPlans: "++id, date, mealTiming",
+      menuLogs: "++id, date, mealTiming",
+    });
   }
 }
 
 export const db = new MealTrackingDB();
+
+const INITIAL_FOODS: Array<Pick<Food, "name" | "category" | "managementType">> = [
+  { name: "にんじん", category: ["vegetable"], managementType: "quantity" },
+  { name: "じゃがいも", category: ["vegetable"], managementType: "quantity" },
+  { name: "たまねぎ", category: ["vegetable"], managementType: "quantity" },
+  { name: "キャベツ", category: ["vegetable"], managementType: "quantity" },
+  { name: "ほうれん草", category: ["vegetable"], managementType: "quantity" },
+  { name: "ブロッコリー", category: ["vegetable"], managementType: "quantity" },
+  { name: "だいこん", category: ["vegetable"], managementType: "quantity" },
+  { name: "トマト", category: ["vegetable"], managementType: "quantity" },
+  { name: "りんご", category: ["fruit"], managementType: "quantity" },
+  { name: "バナナ", category: ["fruit"], managementType: "quantity" },
+  { name: "みかん", category: ["fruit"], managementType: "quantity" },
+  { name: "米", category: ["carbohydrate"], managementType: "level" },
+  { name: "食パン", category: ["carbohydrate"], managementType: "level" },
+  { name: "うどん", category: ["carbohydrate"], managementType: "level" },
+  { name: "鶏肉", category: ["meat"], managementType: "level" },
+  { name: "豚肉", category: ["meat"], managementType: "level" },
+  { name: "牛肉", category: ["meat"], managementType: "level" },
+  { name: "鮭", category: ["fish"], managementType: "level" },
+  { name: "さば", category: ["fish"], managementType: "level" },
+  { name: "豆腐", category: ["bean"], managementType: "level" },
+  { name: "納豆", category: ["bean"], managementType: "level" },
+  { name: "卵", category: ["dairy_egg"], managementType: "level" },
+  { name: "牛乳", category: ["dairy_egg"], managementType: "level" },
+  { name: "ヨーグルト", category: ["dairy_egg"], managementType: "level" },
+  { name: "チーズ", category: ["dairy_egg"], managementType: "level" },
+  { name: "醤油", category: ["seasoning"], managementType: "level" },
+  { name: "みそ", category: ["seasoning"], managementType: "level" },
+  { name: "塩", category: ["seasoning"], managementType: "level" },
+  { name: "お茶", category: ["beverage"], managementType: "level" },
+  { name: "だし", category: ["other"], managementType: "level" },
+];
+
+/** 初回起動時、foodsテーブルが空であれば初期食材マスタをシードする。 */
+export async function seedInitialFoodsIfEmpty(): Promise<void> {
+  const count = await db.foods.count();
+  if (count > 0) return;
+
+  const now = new Date().toISOString();
+  await db.foods.bulkAdd(
+    INITIAL_FOODS.map((food) => ({ ...food, createdAt: now })),
+  );
+}
 
 /** 5-10時→朝食, 10-15時→昼食, 15-19時→夕食, それ以外→間食 */
 export function inferMealTiming(date: Date): MealTiming {
