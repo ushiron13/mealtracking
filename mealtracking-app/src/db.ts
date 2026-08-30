@@ -2,6 +2,7 @@ import Dexie, { type Table } from "dexie";
 import type {
   EventSource,
   Food,
+  FoodCategory,
   Inventory,
   InventoryEvent,
   ManagementType,
@@ -11,6 +12,9 @@ import type {
   StockLevel,
 } from "./types";
 import { toDateKey } from "./format";
+
+const MAIN_DISH_CATEGORIES: FoodCategory[] = ["meat", "fish", "bean"];
+const SIDE_DISH_CATEGORIES: FoodCategory[] = ["vegetable", "fruit"];
 
 export class MealTrackingDB extends Dexie {
   menuPlans!: Table<MenuPlan, number>;
@@ -293,4 +297,48 @@ export async function upsertMenuPlan(
   } else {
     await db.menuPlans.add({ date, mealTiming, menuName: trimmed, updatedAt });
   }
+}
+
+export interface MenuSuggestion {
+  mainCandidates: Food[];
+  sideCandidates: Food[];
+  recentMenuNames: string[];
+}
+
+/**
+ * UC4（大人用献立提案）：在庫が「なし・少ない」の食材を優先候補として主菜系・副菜系に分類する。
+ * 直近のMenuLogとの重複回避のため、直近の実施記録のメニュー名も返す（除外はせず、画面側で注意表示する）。
+ * inventory_menu_design.md 2.7のサンプルはdb.menuLogs.orderBy('createdAt')だが、
+ * menuLogsのDexieインデックスにcreatedAtが無いため、orderBy('date')に置き換えている（4.2節参照）。
+ */
+export async function suggestMenus(): Promise<MenuSuggestion> {
+  const [inventory, foods, recentLogs] = await Promise.all([
+    db.inventory.toArray(),
+    db.foods.toArray(),
+    db.menuLogs.orderBy("date").reverse().limit(7).toArray(),
+  ]);
+
+  const priorityFoodIds = new Set(
+    inventory
+      .filter(
+        (i) =>
+          i.level === "none" ||
+          i.level === "low" ||
+          (i.quantityValue !== undefined && i.quantityValue <= 1),
+      )
+      .map((i) => i.foodId),
+  );
+
+  const priorityFoods = foods.filter((f) => priorityFoodIds.has(f.id!));
+
+  const mainCandidates = priorityFoods.filter((f) =>
+    f.category.some((c) => MAIN_DISH_CATEGORIES.includes(c)),
+  );
+  const sideCandidates = priorityFoods.filter((f) =>
+    f.category.some((c) => SIDE_DISH_CATEGORIES.includes(c)),
+  );
+
+  const recentMenuNames = [...new Set(recentLogs.map((l) => l.menuName))];
+
+  return { mainCandidates, sideCandidates, recentMenuNames };
 }

@@ -2,16 +2,18 @@ import { useEffect, useState } from 'react'
 import RecordInputScreen from './screens/RecordInputScreen'
 import WeeklyMenuScreen from './screens/WeeklyMenuScreen'
 import InventoryListScreen from './screens/InventoryListScreen'
+import MenuSuggestionScreen from './screens/MenuSuggestionScreen'
 import { seedInitialFoodsIfEmpty } from './db'
 import { RecorderContext } from './RecorderContext'
 import { RECORDER_LABEL } from './labels'
 import type { Recorder } from './types'
 
-type Screen = 'weeklyMenu' | 'input' | 'inventory'
+type Screen = 'weeklyMenu' | 'input' | 'inventory' | 'suggestion'
 
 const NAV_TABS: { screen: Screen; label: string }[] = [
   { screen: 'weeklyMenu', label: '週間献立表' },
   { screen: 'inventory', label: '在庫一覧' },
+  { screen: 'suggestion', label: '献立提案' },
 ]
 
 function App() {
@@ -79,6 +81,7 @@ function App() {
           )}
           {screen === 'weeklyMenu' && <WeeklyMenuScreen onNavigateToInput={goToInput} />}
           {screen === 'inventory' && <InventoryListScreen />}
+          {screen === 'suggestion' && <MenuSuggestionScreen />}
         </div>
       </div>
     </RecorderContext.Provider>
