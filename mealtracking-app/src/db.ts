@@ -1,11 +1,14 @@
 import Dexie, { type Table } from "dexie";
 import type {
+  EventSource,
   Food,
   Inventory,
   InventoryEvent,
+  ManagementType,
   MealTiming,
   MenuLog,
   MenuPlan,
+  StockLevel,
 } from "./types";
 import { toDateKey } from "./format";
 
@@ -152,6 +155,87 @@ export async function seedInitialFoodsIfEmpty(): Promise<void> {
     await db.foods.bulkAdd(
       INITIAL_FOODS.map((food) => ({ ...food, createdAt: now })),
     );
+  });
+}
+
+/**
+ * UC1（食材在庫の新規登録）：既存在庫があれば加算する（数量管理）、または段階を直接設定する（段階管理）。
+ * unitは数量管理の食材で初回登録時に単位（本・g等）を設定する場合に指定する。
+ * sourceはぴよログ連携（UC6）から呼ぶ場合は"piyolog_import"を渡す想定（既定は"manual"）。
+ */
+export async function addInventory(
+  foodId: number,
+  managementType: ManagementType,
+  value: number | StockLevel,
+  unit?: string,
+  source: EventSource = "manual",
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.transaction("rw", db.inventory, db.inventoryEvents, async () => {
+    const existing = await db.inventory.where("foodId").equals(foodId).first();
+
+    if (managementType === "quantity") {
+      const addAmount = value as number;
+      if (existing) {
+        await db.inventory.update(existing.id!, {
+          quantityValue: (existing.quantityValue ?? 0) + addAmount,
+          quantityUnit: unit ?? existing.quantityUnit,
+          updatedAt: now,
+        });
+      } else {
+        await db.inventory.add({
+          foodId,
+          quantityValue: addAmount,
+          quantityUnit: unit,
+          updatedAt: now,
+        });
+      }
+      await db.inventoryEvents.add({
+        foodId,
+        eventType: "add",
+        quantityValue: addAmount,
+        source,
+        createdAt: now,
+      });
+    } else {
+      const level = value as StockLevel;
+      if (existing) {
+        await db.inventory.update(existing.id!, { level, updatedAt: now });
+      } else {
+        await db.inventory.add({ foodId, level, updatedAt: now });
+      }
+      await db.inventoryEvents.add({ foodId, eventType: "add", source, createdAt: now });
+    }
+  });
+}
+
+/**
+ * UC2（食材の消費記録）：数量管理は「使い切った」（0にする）のみ対応、
+ * 段階管理は段階を一つ下げる（多い→少ない→なし、なしはそのまま）。
+ * sourceはぴよログ連携（UC6）から呼ぶ場合は"piyolog_import"を渡す想定（既定は"manual"）。
+ */
+export async function consumeInventory(
+  foodId: number,
+  managementType: ManagementType,
+  source: EventSource = "manual",
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.transaction("rw", db.inventory, db.inventoryEvents, async () => {
+    const existing = await db.inventory.where("foodId").equals(foodId).first();
+    if (!existing) return;
+
+    if (managementType === "quantity") {
+      await db.inventory.update(existing.id!, { quantityValue: 0, updatedAt: now });
+    } else {
+      const nextLevel: Record<StockLevel, StockLevel> = {
+        plenty: "low",
+        low: "none",
+        none: "none",
+      };
+      const current = existing.level ?? "none";
+      await db.inventory.update(existing.id!, { level: nextLevel[current], updatedAt: now });
+    }
+    await db.inventoryEvents.add({ foodId, eventType: "consume", source, createdAt: now });
   });
 }
 

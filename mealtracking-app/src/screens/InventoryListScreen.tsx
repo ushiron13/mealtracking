@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { db } from "../db";
+import { addInventory, consumeInventory, db } from "../db";
 import type { Food, FoodCategory, Inventory, ManagementType, StockLevel } from "../types";
 import { FOOD_CATEGORIES, FOOD_CATEGORY_LABEL, MANAGEMENT_TYPE_LABEL, STOCK_LEVEL_LABEL } from "../labels";
 
@@ -33,6 +33,7 @@ function InventoryListScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingFood, setEditingFood] = useState<Food | null>(null);
   const [isAddingFood, setIsAddingFood] = useState(false);
+  const [addingInventoryFor, setAddingInventoryFor] = useState<Food | null>(null);
 
   async function loadData() {
     const [allFoods, allInventory] = await Promise.all([
@@ -93,6 +94,18 @@ function InventoryListScreen() {
     setIsAddingFood(false);
   }
 
+  async function handleAddInventory(value: number | StockLevel, unit?: string) {
+    if (!addingInventoryFor) return;
+    await addInventory(addingInventoryFor.id!, addingInventoryFor.managementType, value, unit);
+    await loadData();
+    setAddingInventoryFor(null);
+  }
+
+  async function handleConsume(food: Food) {
+    await consumeInventory(food.id!, food.managementType);
+    await loadData();
+  }
+
   return (
     <div className="px-4 py-6 sm:px-8">
       <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -126,25 +139,43 @@ function InventoryListScreen() {
                   </h2>
                   <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-orange-100">
                     {rows.map((row, index) => (
-                      <button
+                      <div
                         key={row.food.id}
-                        type="button"
-                        onClick={() => setEditingFood(row.food)}
-                        className={`flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left transition active:scale-[0.99] ${
+                        className={`flex min-h-11 w-full items-center gap-2 px-4 py-3 ${
                           index > 0 ? "border-t border-orange-50" : ""
                         } ${isLowOrNone(row) ? "bg-amber-50" : "bg-white"}`}
                       >
-                        <span className="font-medium text-gray-800">{row.food.name}</span>
-                        <span
-                          className={`text-sm font-semibold ${
-                            isLowOrNone(row) ? "text-amber-700" : "text-gray-500"
-                          }`}
+                        <button
+                          type="button"
+                          onClick={() => setEditingFood(row.food)}
+                          className="flex min-h-11 flex-1 items-center justify-between gap-3 text-left transition active:scale-[0.99]"
                         >
-                          {row.food.managementType === "quantity"
-                            ? quantityLabel(row.inventory)
-                            : levelLabel(row.inventory)}
-                        </span>
-                      </button>
+                          <span className="font-medium text-gray-800">{row.food.name}</span>
+                          <span
+                            className={`text-sm font-semibold ${
+                              isLowOrNone(row) ? "text-amber-700" : "text-gray-500"
+                            }`}
+                          >
+                            {row.food.managementType === "quantity"
+                              ? quantityLabel(row.inventory)
+                              : levelLabel(row.inventory)}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAddingInventoryFor(row.food)}
+                          className="min-h-11 shrink-0 rounded-lg border-2 border-orange-200 bg-white px-3 text-xs font-semibold text-orange-600 transition active:scale-95"
+                        >
+                          追加
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleConsume(row.food)}
+                          className="min-h-11 shrink-0 rounded-lg border-2 border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 transition active:scale-95"
+                        >
+                          {row.food.managementType === "quantity" ? "使い切った" : "減らす"}
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </section>
@@ -160,6 +191,15 @@ function InventoryListScreen() {
           inventory={inventoryByFoodId.get(editingFood.id!)}
           onCancel={() => setEditingFood(null)}
           onSave={handleSaveEdit}
+        />
+      )}
+
+      {addingInventoryFor && (
+        <AddInventoryModal
+          food={addingInventoryFor}
+          currentUnit={inventoryByFoodId.get(addingInventoryFor.id!)?.quantityUnit}
+          onCancel={() => setAddingInventoryFor(null)}
+          onSave={handleAddInventory}
         />
       )}
 
@@ -252,6 +292,85 @@ function InventoryEditModal({ food, inventory, onCancel, onSave }: InventoryEdit
           >
             保存する
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface AddInventoryModalProps {
+  food: Food;
+  currentUnit?: string;
+  onCancel: () => void;
+  onSave: (value: number | StockLevel, unit?: string) => void;
+}
+
+function AddInventoryModal({ food, currentUnit, onCancel, onSave }: AddInventoryModalProps) {
+  const [amount, setAmount] = useState("1");
+  const [unit, setUnit] = useState(currentUnit ?? "");
+
+  function handleSubmit() {
+    if (food.managementType === "quantity") {
+      const parsed = Number(amount);
+      onSave(Number.isFinite(parsed) && parsed > 0 ? parsed : 1, unit.trim() || undefined);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+        <h2 className="mb-1 text-lg font-bold text-gray-900">{food.name}を追加</h2>
+        <p className="mb-4 text-sm text-gray-500">{MANAGEMENT_TYPE_LABEL[food.managementType]}</p>
+
+        {food.managementType === "quantity" ? (
+          <div className="mb-6 flex gap-2">
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="追加する個数"
+              className="min-h-11 w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 text-base text-gray-800 focus:border-orange-500 focus:outline-none"
+            />
+            <input
+              type="text"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder="単位（本・個等）"
+              className="min-h-11 w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 text-base text-gray-800 focus:border-orange-500 focus:outline-none"
+            />
+          </div>
+        ) : (
+          <div className="mb-6 flex gap-2">
+            {(["plenty", "low"] as StockLevel[]).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => onSave(l)}
+                className="min-h-11 flex-1 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium text-gray-700 transition active:scale-95"
+              >
+                {STOCK_LEVEL_LABEL[l]}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-11 flex-1 rounded-xl border-2 border-gray-200 bg-white text-base font-medium text-gray-700 transition active:scale-95"
+          >
+            キャンセル
+          </button>
+          {food.managementType === "quantity" && (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="min-h-11 flex-1 rounded-xl bg-orange-500 text-base font-semibold text-white shadow-sm transition active:scale-95 active:bg-orange-600"
+            >
+              追加する
+            </button>
+          )}
         </div>
       </div>
     </div>
