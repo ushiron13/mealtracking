@@ -1,10 +1,27 @@
 import Dexie, { type Table } from "dexie";
-import type { MealTiming, MenuLog, MenuPlan } from "./types";
+import type {
+  EventSource,
+  Food,
+  FoodCategory,
+  Inventory,
+  InventoryEvent,
+  ManagementType,
+  MealTiming,
+  MenuLog,
+  MenuPlan,
+  StockLevel,
+} from "./types";
 import { toDateKey } from "./format";
+
+const MAIN_DISH_CATEGORIES: FoodCategory[] = ["meat", "fish", "bean"];
+const SIDE_DISH_CATEGORIES: FoodCategory[] = ["vegetable", "fruit"];
 
 export class MealTrackingDB extends Dexie {
   menuPlans!: Table<MenuPlan, number>;
   menuLogs!: Table<MenuLog, number>;
+  foods!: Table<Food, number>;
+  inventory!: Table<Inventory, number>;
+  inventoryEvents!: Table<InventoryEvent, number>;
 
   constructor() {
     super("MealTrackingDB");
@@ -81,10 +98,150 @@ export class MealTrackingDB extends Dexie {
       menuPlans: "++id, date, mealTiming",
       menuLogs: "++id, date, mealTiming",
     });
+    // v7: 食材在庫管理・大人用献立提案（新スコープ）に伴い、foodsを在庫管理用に作り直し、
+    // inventory/inventoryEventsを新設。menuPlans/menuLogsは変更なし（既存データを維持）。
+    this.version(7).stores({
+      foods: "++id, name, *category, managementType",
+      inventory: "++id, foodId",
+      inventoryEvents: "++id, foodId, eventType, createdAt",
+      menuPlans: "++id, date, mealTiming",
+      menuLogs: "++id, date, mealTiming",
+    });
   }
 }
 
 export const db = new MealTrackingDB();
+
+const INITIAL_FOODS: Array<Pick<Food, "name" | "category" | "managementType">> = [
+  { name: "にんじん", category: ["vegetable"], managementType: "quantity" },
+  { name: "じゃがいも", category: ["vegetable"], managementType: "quantity" },
+  { name: "たまねぎ", category: ["vegetable"], managementType: "quantity" },
+  { name: "キャベツ", category: ["vegetable"], managementType: "quantity" },
+  { name: "ほうれん草", category: ["vegetable"], managementType: "quantity" },
+  { name: "ブロッコリー", category: ["vegetable"], managementType: "quantity" },
+  { name: "だいこん", category: ["vegetable"], managementType: "quantity" },
+  { name: "トマト", category: ["vegetable"], managementType: "quantity" },
+  { name: "りんご", category: ["fruit"], managementType: "quantity" },
+  { name: "バナナ", category: ["fruit"], managementType: "quantity" },
+  { name: "みかん", category: ["fruit"], managementType: "quantity" },
+  { name: "米", category: ["carbohydrate"], managementType: "level" },
+  { name: "食パン", category: ["carbohydrate"], managementType: "level" },
+  { name: "うどん", category: ["carbohydrate"], managementType: "level" },
+  { name: "鶏肉", category: ["meat"], managementType: "level" },
+  { name: "豚肉", category: ["meat"], managementType: "level" },
+  { name: "牛肉", category: ["meat"], managementType: "level" },
+  { name: "鮭", category: ["fish"], managementType: "level" },
+  { name: "さば", category: ["fish"], managementType: "level" },
+  { name: "豆腐", category: ["bean"], managementType: "level" },
+  { name: "納豆", category: ["bean"], managementType: "level" },
+  { name: "卵", category: ["dairy_egg"], managementType: "level" },
+  { name: "牛乳", category: ["dairy_egg"], managementType: "level" },
+  { name: "ヨーグルト", category: ["dairy_egg"], managementType: "level" },
+  { name: "チーズ", category: ["dairy_egg"], managementType: "level" },
+  { name: "醤油", category: ["seasoning"], managementType: "level" },
+  { name: "みそ", category: ["seasoning"], managementType: "level" },
+  { name: "塩", category: ["seasoning"], managementType: "level" },
+  { name: "お茶", category: ["beverage"], managementType: "level" },
+  { name: "だし", category: ["other"], managementType: "level" },
+];
+
+/**
+ * 初回起動時、foodsテーブルが空であれば初期食材マスタをシードする。
+ * トランザクション内で件数確認と追加を行い、React StrictMode等による
+ * 同時呼び出しで二重シードされないようにする。
+ */
+export async function seedInitialFoodsIfEmpty(): Promise<void> {
+  await db.transaction("rw", db.foods, async () => {
+    const count = await db.foods.count();
+    if (count > 0) return;
+
+    const now = new Date().toISOString();
+    await db.foods.bulkAdd(
+      INITIAL_FOODS.map((food) => ({ ...food, createdAt: now })),
+    );
+  });
+}
+
+/**
+ * UC1（食材在庫の新規登録）：既存在庫があれば加算する（数量管理）、または段階を直接設定する（段階管理）。
+ * unitは数量管理の食材で初回登録時に単位（本・g等）を設定する場合に指定する。
+ * sourceはぴよログ連携（UC6）から呼ぶ場合は"piyolog_import"を渡す想定（既定は"manual"）。
+ */
+export async function addInventory(
+  foodId: number,
+  managementType: ManagementType,
+  value: number | StockLevel,
+  unit?: string,
+  source: EventSource = "manual",
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.transaction("rw", db.inventory, db.inventoryEvents, async () => {
+    const existing = await db.inventory.where("foodId").equals(foodId).first();
+
+    if (managementType === "quantity") {
+      const addAmount = value as number;
+      if (existing) {
+        await db.inventory.update(existing.id!, {
+          quantityValue: (existing.quantityValue ?? 0) + addAmount,
+          quantityUnit: unit ?? existing.quantityUnit,
+          updatedAt: now,
+        });
+      } else {
+        await db.inventory.add({
+          foodId,
+          quantityValue: addAmount,
+          quantityUnit: unit,
+          updatedAt: now,
+        });
+      }
+      await db.inventoryEvents.add({
+        foodId,
+        eventType: "add",
+        quantityValue: addAmount,
+        source,
+        createdAt: now,
+      });
+    } else {
+      const level = value as StockLevel;
+      if (existing) {
+        await db.inventory.update(existing.id!, { level, updatedAt: now });
+      } else {
+        await db.inventory.add({ foodId, level, updatedAt: now });
+      }
+      await db.inventoryEvents.add({ foodId, eventType: "add", source, createdAt: now });
+    }
+  });
+}
+
+/**
+ * UC2（食材の消費記録）：数量管理は「使い切った」（0にする）のみ対応、
+ * 段階管理は段階を一つ下げる（多い→少ない→なし、なしはそのまま）。
+ * sourceはぴよログ連携（UC6）から呼ぶ場合は"piyolog_import"を渡す想定（既定は"manual"）。
+ */
+export async function consumeInventory(
+  foodId: number,
+  managementType: ManagementType,
+  source: EventSource = "manual",
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.transaction("rw", db.inventory, db.inventoryEvents, async () => {
+    const existing = await db.inventory.where("foodId").equals(foodId).first();
+    if (!existing) return;
+
+    if (managementType === "quantity") {
+      await db.inventory.update(existing.id!, { quantityValue: 0, updatedAt: now });
+    } else {
+      const nextLevel: Record<StockLevel, StockLevel> = {
+        plenty: "low",
+        low: "none",
+        none: "none",
+      };
+      const current = existing.level ?? "none";
+      await db.inventory.update(existing.id!, { level: nextLevel[current], updatedAt: now });
+    }
+    await db.inventoryEvents.add({ foodId, eventType: "consume", source, createdAt: now });
+  });
+}
 
 /** 5-10時→朝食, 10-15時→昼食, 15-19時→夕食, それ以外→間食 */
 export function inferMealTiming(date: Date): MealTiming {
@@ -140,4 +297,75 @@ export async function upsertMenuPlan(
   } else {
     await db.menuPlans.add({ date, mealTiming, menuName: trimmed, updatedAt });
   }
+}
+
+export interface MenuSuggestion {
+  mainCandidates: Food[];
+  sideCandidates: Food[];
+  recentMenuNames: string[];
+}
+
+/**
+ * UC4（大人用献立提案）：在庫が「なし・少ない」の食材を優先候補として主菜系・副菜系に分類する。
+ * 直近のMenuLogとの重複回避のため、直近の実施記録のメニュー名も返す（除外はせず、画面側で注意表示する）。
+ * inventory_menu_design.md 2.7のサンプルはdb.menuLogs.orderBy('createdAt')だが、
+ * menuLogsのDexieインデックスにcreatedAtが無いため、orderBy('date')に置き換えている（4.2節参照）。
+ */
+export async function suggestMenus(): Promise<MenuSuggestion> {
+  const [inventory, foods, recentLogs] = await Promise.all([
+    db.inventory.toArray(),
+    db.foods.toArray(),
+    db.menuLogs.orderBy("date").reverse().limit(7).toArray(),
+  ]);
+
+  const priorityFoodIds = new Set(
+    inventory
+      .filter(
+        (i) =>
+          i.level === "none" ||
+          i.level === "low" ||
+          (i.quantityValue !== undefined && i.quantityValue <= 1),
+      )
+      .map((i) => i.foodId),
+  );
+
+  const priorityFoods = foods.filter((f) => priorityFoodIds.has(f.id!));
+
+  const mainCandidates = priorityFoods.filter((f) =>
+    f.category.some((c) => MAIN_DISH_CATEGORIES.includes(c)),
+  );
+  const sideCandidates = priorityFoods.filter((f) =>
+    f.category.some((c) => SIDE_DISH_CATEGORIES.includes(c)),
+  );
+
+  const recentMenuNames = [...new Set(recentLogs.map((l) => l.menuName))];
+
+  return { mainCandidates, sideCandidates, recentMenuNames };
+}
+
+/**
+ * UC5（提案の採用）：使用した食材を消費記録として反映し、週間献立表（MenuLog）に実施記録を追加する。
+ * mealTiming/dateは呼び出し時点でinferMealTiming/toDateKeyから導出する想定。
+ */
+export async function adoptMenu(
+  menuName: string,
+  usedFoodIds: number[],
+  date: string,
+  mealTiming: MealTiming,
+  recordedBy: MenuLog["recordedBy"],
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  for (const foodId of usedFoodIds) {
+    const food = await db.foods.get(foodId);
+    if (food) await consumeInventory(foodId, food.managementType);
+  }
+
+  await db.menuLogs.add({
+    date,
+    mealTiming,
+    menuName,
+    recordedBy,
+    createdAt: now,
+  });
 }
